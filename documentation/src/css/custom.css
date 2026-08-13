@@ -29,11 +29,12 @@
 }
 
 .navbar__logo {
-  width: 150px;
+  width: 2.5rem;
+  height: 2.5rem;
 }
 
 .navbar__title {
-  display: none;
+  display: inline-block;
 }
 
 .docs-hero {

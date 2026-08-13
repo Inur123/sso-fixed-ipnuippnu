@@ -46,7 +46,7 @@ Aplikasi Administrasi
 └── Budi
 ```
 
-Tambahkan assignment dengan memasukkan UUID pengguna atau email secara persis. Hanya akun aktif dengan email terverifikasi yang dapat ditambahkan. Versi saat ini mendukung assignment pengguna langsung; sinkronisasi grup/SCIM merupakan pengembangan berikutnya, bukan fitur yang diklaim tersedia sekarang.
+Tambahkan assignment dengan memasukkan UUID pengguna atau email secara persis. Portal menampilkan satu akun yang cocok untuk dikonfirmasi sebelum akses ditambahkan. Hanya akun aktif dengan email terverifikasi yang dapat ditemukan. Daftar pengguna yang sudah ditugaskan tersedia pada halaman **Lihat detail** aplikasi dan dipaginasi agar tetap ringan ketika jumlahnya besar. Assignment pengguna biasa dapat dicabut dari tabel detail, sedangkan assignment pemilik aplikasi dilindungi. Form assignment tidak ditampilkan untuk policy `all_active_users` karena seluruh akun aktif memang sudah diizinkan. Versi saat ini mendukung assignment pengguna langsung; sinkronisasi grup/SCIM merupakan pengembangan berikutnya, bukan fitur yang diklaim tersedia sekarang.
 
 ## Role dan permission aplikasi
 

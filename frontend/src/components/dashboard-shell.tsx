@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { AppWindow, BadgeCheck, KeyRound, LayoutDashboard, LogOut, ScrollText, Shield, UserRound, UsersRound } from "lucide-react";
+import { AppWindow, BadgeCheck, ChevronDown, KeyRound, LayoutDashboard, LogOut, ScrollText, Shield, UserRound, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
@@ -66,7 +66,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
     <SidebarProvider>
       <Sidebar collapsible="icon" className="border-r">
         <SidebarHeader className="h-20 justify-center px-3 group-data-[collapsible=icon]:px-1.5">
-          <Brand className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 [&>span:first-child]:group-data-[collapsible=icon]:size-9 [&>span:last-child]:group-data-[collapsible=icon]:hidden" />
+          <Brand className="group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0 [&>img]:group-data-[collapsible=icon]:size-9 [&>span:last-child]:group-data-[collapsible=icon]:hidden" />
         </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
@@ -97,9 +97,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="h-auto gap-3 px-2 py-1.5">
+                <Button variant="ghost" className="group h-auto gap-3 px-2 py-1.5" aria-label="Buka menu akun dan logout">
                   <Avatar className="size-8"><AvatarImage src={user.avatar} alt={user.name} /><AvatarFallback>{initials}</AvatarFallback></Avatar>
                   <span className="hidden text-left sm:grid"><span className="max-w-36 truncate text-sm font-medium">{user.name}</span><span className="text-xs text-muted-foreground">{user.role === "super_admin" ? "Super admin" : "Anggota"}</span></span>
+                  <ChevronDown className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" aria-hidden="true" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-60">
@@ -115,7 +116,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <span className="text-xs text-muted-foreground" aria-live="polite">Memuat akun...</span>
           )}
         </header>
-        <main className="flex-1 bg-muted/20 p-4 sm:p-6 lg:p-10" aria-busy={loading || !user}>
+        <main className="flex-1 bg-muted/20 p-4 sm:p-6 lg:px-8 lg:py-6" aria-busy={loading || !user}>
           <div className="mx-auto w-full max-w-7xl">
             {loading || !user ? <DashboardLoadingSkeleton pathname={pathname} /> : children}
           </div>

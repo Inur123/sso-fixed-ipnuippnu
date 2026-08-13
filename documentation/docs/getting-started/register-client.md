@@ -14,9 +14,11 @@ Setiap akun anggota yang aktif dan sudah memverifikasi email dapat membuat aplik
 3. Pilih **Tambah aplikasi**.
 4. Isi nama, deskripsi opsional, dan minimal satu **Redirect URI**.
 5. Pilih kebijakan akses aplikasi.
-6. Untuk kebijakan terbatas, buka **Kelola akses pengguna**, lalu masukkan UUID pengguna atau email secara persis.
-7. Simpan aplikasi.
-8. Simpan credential sesuai jenis client.
+6. Simpan aplikasi dan credential sesuai jenis client.
+7. Pilih **Lihat detail** untuk memeriksa informasi umum, Redirect URI, kebijakan, dan daftar pengguna aplikasi.
+8. Untuk kebijakan terbatas, buka **Kelola akses**, lalu masukkan UUID pengguna atau email secara persis.
+
+Pada halaman detail, pemilik aplikasi dapat mencabut assignment pengguna langsung dari tabel. Assignment pemilik aplikasi dilindungi dan tidak dapat dicabut agar aplikasi selalu memiliki pengelola.
 
 Scope `openid profile email` diizinkan otomatis. Aplikasi tetap harus meminta scope minimum pada authorization request.
 

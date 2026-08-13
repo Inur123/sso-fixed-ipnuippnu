@@ -34,3 +34,18 @@ func TestEscapeAuditLike(t *testing.T) {
 		t.Fatalf("unexpected escaped search: %q", got)
 	}
 }
+
+func TestAuditLoginContextUsesStructuredFields(t *testing.T) {
+	event, ok := newAuditEvent(nil, AuditAuthLogin, "session", "session-id", "Login berhasil.", "127.0.0.1")
+	if !ok {
+		t.Fatal("expected known login action")
+	}
+	latitude, longitude, accuracy := -7.6499, 111.3381, 25.0
+	event.Device = "MacIntel; id-ID; Asia/Jakarta"
+	event.Latitude = &latitude
+	event.Longitude = &longitude
+	event.Accuracy = &accuracy
+	if event.Device == "" || event.Latitude == nil || event.Longitude == nil || event.Accuracy == nil {
+		t.Fatal("expected device and location audit fields")
+	}
+}

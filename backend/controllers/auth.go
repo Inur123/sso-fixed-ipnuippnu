@@ -3,6 +3,7 @@ package controllers
 import (
 	"errors"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -304,16 +305,53 @@ func clearUndeliveredEmailOTP(userID, hash string) {
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Email    string        `json:"email" binding:"required,email"`
+	Password string        `json:"password" binding:"required"`
+	Location LoginLocation `json:"location" binding:"required"`
+	Device   LoginDevice   `json:"device" binding:"required"`
+}
+
+type LoginLocation struct {
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+	Accuracy  float64 `json:"accuracy"`
+}
+
+type LoginDevice struct {
+	Platform string `json:"platform"`
+	Language string `json:"language"`
+	Timezone string `json:"timezone"`
+}
+
+func validLoginContext(req LoginRequest) bool {
+	return !math.IsNaN(req.Location.Latitude) && !math.IsInf(req.Location.Latitude, 0) &&
+		!math.IsNaN(req.Location.Longitude) && !math.IsInf(req.Location.Longitude, 0) &&
+		!math.IsNaN(req.Location.Accuracy) && !math.IsInf(req.Location.Accuracy, 0) &&
+		req.Location.Latitude >= -90 && req.Location.Latitude <= 90 &&
+		req.Location.Longitude >= -180 && req.Location.Longitude <= 180 &&
+		req.Location.Accuracy > 0 && req.Location.Accuracy <= 100000 &&
+		strings.TrimSpace(req.Device.Platform) != "" && len(req.Device.Platform) <= 120 &&
+		len(req.Device.Language) <= 40 && len(req.Device.Timezone) <= 100
+}
+
+func loginDeviceDescription(c *gin.Context, device LoginDevice) string {
+	return "Platform: " + strings.TrimSpace(device.Platform) +
+		"; Bahasa: " + strings.TrimSpace(device.Language) +
+		"; Zona waktu: " + strings.TrimSpace(device.Timezone) +
+		"; User-Agent: " + c.Request.UserAgent()
 }
 
 func Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, "invalid_request", "Email dan kata sandi wajib diisi.")
+		respondError(c, http.StatusBadRequest, "invalid_request", "Email, kata sandi, lokasi, dan informasi perangkat wajib diisi.")
 		return
 	}
+	if !validLoginContext(req) {
+		respondError(c, http.StatusBadRequest, "location_required", "Izin lokasi dan informasi perangkat yang valid diperlukan untuk login.")
+		return
+	}
+	device := loginDeviceDescription(c, req.Device)
 
 	var user models.User
 	lookupErr := database.DB.Where("LOWER(email) = ?", normalizeEmail(req.Email)).First(&user).Error
@@ -324,12 +362,12 @@ func Login(c *gin.Context) {
 			actorID = &user.ID
 			targetID = user.ID
 		}
-		auditWithActor(c, actorID, AuditAuthLoginFailed, "user", targetID, "Percobaan login gagal.")
+		auditLoginWithActor(c, actorID, AuditAuthLoginFailed, "user", targetID, "Percobaan login gagal.", device, req.Location.Latitude, req.Location.Longitude, req.Location.Accuracy)
 		respondError(c, http.StatusUnauthorized, "invalid_credentials", "Email atau kata sandi salah.")
 		return
 	}
 	if status, code, message, denied := accountAccessError(&user); denied {
-		auditWithActor(c, &user.ID, AuditAuthLoginFailed, "user", user.ID, "Login ditolak oleh kebijakan keamanan akun.")
+		auditLoginWithActor(c, &user.ID, AuditAuthLoginFailed, "user", user.ID, "Login ditolak oleh kebijakan keamanan akun.", device, req.Location.Latitude, req.Location.Longitude, req.Location.Accuracy)
 		respondError(c, status, code, message)
 		return
 	}
@@ -354,7 +392,7 @@ func Login(c *gin.Context) {
 	}
 
 	setSessionCookie(c, rawToken, int(sessionLifetime.Seconds()))
-	auditWithActor(c, &user.ID, AuditAuthLogin, "session", session.ID, "Login berhasil dan sesi baru dibuat.")
+	auditLoginWithActor(c, &user.ID, AuditAuthLogin, "session", session.ID, "Login berhasil dan sesi baru dibuat.", device, req.Location.Latitude, req.Location.Longitude, req.Location.Accuracy)
 	c.JSON(http.StatusOK, gin.H{"message": "Login IPNU IPPNU ID berhasil.", "user": user})
 }
 

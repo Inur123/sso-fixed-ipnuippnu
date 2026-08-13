@@ -77,7 +77,8 @@ Endpoint berikut memakai cookie sesi portal. Anggota mengelola client miliknya; 
 | `PATCH` | `/api/clients/:id` | Mengubah nama, deskripsi, dan Redirect URI client |
 | `GET` | `/api/clients/:id/secret` | Membuka secret; respons `Cache-Control: no-store` |
 | `POST` | `/api/clients/:id/secret/regenerate` | Mengganti secret dengan `expected_version` dan mencabut token/code client lama |
-| `GET` | `/api/clients/:id/assignments` | Daftar assignment langsung dan kebijakan akses client |
+| `GET` | `/api/clients/:id/assignments` | Detail client dan daftar assignment terpaginasikan; mendukung `page`, `page_size`, dan `search` |
+| `POST` | `/api/clients/:id/assignment-lookup` | Memeriksa satu UUID/email exact sebelum assignment dibuat |
 | `POST` | `/api/clients/:id/assignments` | Menambah assignment dengan body `identifier` berisi UUID atau email persis |
 | `DELETE` | `/api/clients/:id/assignments/:userId` | Menghapus assignment dan mencabut grant pengguna |
 | `DELETE` | `/api/clients/:id` | Menghapus client dan seluruh grant terkait |

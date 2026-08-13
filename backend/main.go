@@ -145,6 +145,7 @@ func main() {
 	r.GET("/api/clients/:id/secret", controllers.RequireSession, controllers.GetClientSecret)
 	r.POST("/api/clients/:id/secret/regenerate", controllers.RequireSession, controllers.RegenerateClientSecret)
 	r.GET("/api/clients/:id/assignments", controllers.RequireSession, controllers.GetClientAssignments)
+	r.POST("/api/clients/:id/assignment-lookup", controllers.RequireSession, controllers.LookupClientAssignmentUser)
 	r.POST("/api/clients/:id/assignments", controllers.RequireSession, controllers.AssignClientUser)
 	r.DELETE("/api/clients/:id/assignments/:userId", controllers.RequireSession, controllers.DeleteClientAssignment)
 	r.DELETE("/api/clients/:id", controllers.RequireSession, controllers.DeleteClient)

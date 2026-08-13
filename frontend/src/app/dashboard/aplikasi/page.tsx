@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { AppWindow, Copy, Eye, EyeOff, Pencil, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
+import { AppWindow, Copy, Eye, EyeOff, FileText, Pencil, Plus, RefreshCw, ShieldCheck, Trash2, UserPlus, Users } from "lucide-react";
 import { toast } from "sonner";
 
 import { OAuthClientCardSkeleton } from "@/components/dashboard-loading-skeleton";
@@ -17,7 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { apiFetch, getErrorMessage, type OAuthClient, type OAuthClientAssignment } from "@/lib/api";
+import { APIError, apiFetch, getErrorMessage, type AssignableUser, type OAuthClient } from "@/lib/api";
 
 type ClientForm = {
   name: string;
@@ -57,6 +58,13 @@ function validateRedirectURIs(values: string[]) {
   return errors;
 }
 
+function isCompleteAssignmentIdentifier(value: string) {
+  const identifier = value.trim();
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+  return identifier.length <= 254 && (uuidPattern.test(identifier) || emailPattern.test(identifier));
+}
+
 export default function AplikasiPage() {
   const [clients, setClients] = useState<OAuthClient[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,9 +78,11 @@ export default function AplikasiPage() {
   const [form, setForm] = useState<ClientForm>(EMPTY_FORM);
   const [redirectURIErrors, setRedirectURIErrors] = useState<Record<number, string>>({});
   const [accessClient, setAccessClient] = useState<OAuthClient | null>(null);
-  const [assignments, setAssignments] = useState<OAuthClientAssignment[]>([]);
   const [assignmentIdentifier, setAssignmentIdentifier] = useState("");
-  const [accessLoading, setAccessLoading] = useState(false);
+  const [assignmentCandidate, setAssignmentCandidate] = useState<AssignableUser | null>(null);
+  const [candidateAssigned, setCandidateAssigned] = useState(false);
+  const [assignmentLookupLoading, setAssignmentLookupLoading] = useState(false);
+  const [assignmentLookupMessage, setAssignmentLookupMessage] = useState<string | null>(null);
   const [assignmentSubmitting, setAssignmentSubmitting] = useState(false);
   const secretMemoryGeneration = useRef(0);
 
@@ -275,36 +285,31 @@ export default function AplikasiPage() {
   async function openAccessDialog(client: OAuthClient) {
     setAccessClient(client);
     setAssignmentIdentifier("");
-    setAccessLoading(true);
+    setAssignmentCandidate(null);
+    setCandidateAssigned(false);
+    setAssignmentLookupMessage(null);
     try {
-      const data = await apiFetch<{ client: OAuthClient; assignments: OAuthClientAssignment[] }>(`/api/clients/${encodeURIComponent(client.client_id)}/assignments`);
-      setAssignments(data.assignments);
+      const data = await apiFetch<{ client: OAuthClient }>(`/api/clients/${encodeURIComponent(client.client_id)}`);
       setClients((items) => items.map((item) => item.client_id === client.client_id ? { ...item, ...data.client } : item));
       setAccessClient(data.client);
     } catch (error) {
       toast.error(getErrorMessage(error));
       setAccessClient(null);
-    } finally {
-      setAccessLoading(false);
     }
   }
 
   async function saveAssignment(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const identifier = assignmentIdentifier.trim();
-    if (!accessClient || !identifier) return;
+    if (!accessClient || !assignmentCandidate || candidateAssigned) return;
     setAssignmentSubmitting(true);
     try {
-      const data = await apiFetch<{ assignment: OAuthClientAssignment }>(`/api/clients/${encodeURIComponent(accessClient.client_id)}/assignments`, {
+      await apiFetch(`/api/clients/${encodeURIComponent(accessClient.client_id)}/assignments`, {
         method: "POST",
-        body: JSON.stringify({ identifier }),
+        body: JSON.stringify({ identifier: assignmentCandidate.user_id }),
       });
-      const existed = assignments.some((item) => item.user_id === data.assignment.user_id);
-      setAssignments((items) => existed ? items.map((item) => item.user_id === data.assignment.user_id ? data.assignment : item) : [...items, data.assignment]);
-      if (!existed) {
-        setClients((items) => items.map((item) => item.client_id === accessClient.client_id ? { ...item, assignment_count: item.assignment_count + 1 } : item));
-      }
-      setAssignmentIdentifier("");
+      setClients((items) => items.map((item) => item.client_id === accessClient.client_id ? { ...item, assignment_count: item.assignment_count + 1 } : item));
+      setAccessClient((client) => client ? { ...client, assignment_count: client.assignment_count + 1 } : client);
+      setCandidateAssigned(true);
       toast.success("Akses pengguna berhasil disimpan.");
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -313,12 +318,56 @@ export default function AplikasiPage() {
     }
   }
 
-  async function removeAssignment(assignment: OAuthClientAssignment) {
-    if (!accessClient) return;
+  useEffect(() => {
+    const identifier = assignmentIdentifier.trim();
+    if (!accessClient || accessClient.access_policy !== "assigned_only" || !isCompleteAssignmentIdentifier(identifier)) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setAssignmentLookupLoading(true);
+      try {
+        const data = await apiFetch<{ user: AssignableUser; assigned: boolean }>(`/api/clients/${encodeURIComponent(accessClient.client_id)}/assignment-lookup`, {
+          method: "POST",
+          body: JSON.stringify({ identifier }),
+          signal: controller.signal,
+        });
+        setAssignmentCandidate(data.user);
+        setCandidateAssigned(data.assigned);
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        if (error instanceof APIError && (error.status === 404 || error.status === 409)) {
+          setAssignmentLookupMessage(error.status === 404 ? "Akun tidak ditemukan." : getErrorMessage(error));
+        } else {
+          toast.error(getErrorMessage(error));
+        }
+      } finally {
+        if (!controller.signal.aborted) setAssignmentLookupLoading(false);
+      }
+    }, 700);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [accessClient, assignmentIdentifier]);
+
+  function updateAssignmentIdentifier(value: string) {
+    setAssignmentIdentifier(value);
+    setAssignmentCandidate(null);
+    setCandidateAssigned(false);
+    setAssignmentLookupMessage(null);
+    setAssignmentLookupLoading(false);
+  }
+
+  async function removeCandidateAssignment() {
+    if (!accessClient || !assignmentCandidate || !candidateAssigned) return;
     try {
-      await apiFetch(`/api/clients/${encodeURIComponent(accessClient.client_id)}/assignments/${encodeURIComponent(assignment.user_id)}`, { method: "DELETE" });
-      setAssignments((items) => items.filter((item) => item.user_id !== assignment.user_id));
+      await apiFetch(`/api/clients/${encodeURIComponent(accessClient.client_id)}/assignments/${encodeURIComponent(assignmentCandidate.user_id)}`, { method: "DELETE" });
       setClients((items) => items.map((item) => item.client_id === accessClient.client_id ? { ...item, assignment_count: Math.max(0, item.assignment_count - 1) } : item));
+      setAccessClient((client) => client ? { ...client, assignment_count: Math.max(0, client.assignment_count - 1) } : client);
+      setCandidateAssigned(false);
       toast.success("Akses pengguna berhasil dicabut.");
     } catch (error) {
       toast.error(getErrorMessage(error));
@@ -416,7 +465,7 @@ export default function AplikasiPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(accessClient)} onOpenChange={(open) => { if (!open && !assignmentSubmitting) { setAccessClient(null); setAssignmentIdentifier(""); } }}>
+      <Dialog open={Boolean(accessClient)} onOpenChange={(open) => { if (!open && !assignmentSubmitting) { setAccessClient(null); setAssignmentIdentifier(""); setAssignmentCandidate(null); setCandidateAssigned(false); setAssignmentLookupMessage(null); } }}>
         <DialogContent className="max-h-[calc(100svh-2rem)] overflow-hidden p-0 sm:max-w-2xl">
           <DialogHeader className="border-b px-5 py-5 pr-14 sm:px-6">
             <DialogTitle className="text-lg">Akses aplikasi {accessClient?.name}</DialogTitle>
@@ -428,33 +477,59 @@ export default function AplikasiPage() {
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">SSO hanya menentukan siapa yang boleh masuk. Role dan permission bisnis dikelola sendiri oleh aplikasi tujuan.</p>
             </div>
 
-            <form onSubmit={saveAssignment} className="grid gap-4 rounded-lg border p-4">
-              <div className="flex items-center gap-2 font-medium"><UserPlus className="size-4" />Tambahkan akses pengguna</div>
-              <div className="space-y-2">
-                <Label htmlFor="assignment-identifier">ID pengguna atau email</Label>
-                <Input id="assignment-identifier" value={assignmentIdentifier} onChange={(event) => setAssignmentIdentifier(event.target.value)} placeholder="UUID pengguna atau anggota@example.com" autoComplete="off" required />
-                <p className="text-xs leading-relaxed text-muted-foreground">Pencocokan harus persis. Hanya akun aktif dengan email terverifikasi yang dapat ditambahkan.</p>
-              </div>
-              <div className="flex flex-wrap justify-end gap-2"><Button type="button" variant="outline" onClick={() => setAssignmentIdentifier("")}>Bersihkan</Button><Button disabled={!assignmentIdentifier.trim() || assignmentSubmitting}>{assignmentSubmitting && <Spinner />}Tambahkan akses</Button></div>
-            </form>
-
-            <div className="space-y-3">
-              <div><p className="font-medium">Pengguna yang ditugaskan</p><p className="text-xs text-muted-foreground">Perubahan assignment langsung mencabut token dan authorization code lama pengguna tersebut.</p></div>
-              {accessLoading && <div className="flex justify-center py-8"><Spinner /></div>}
-              {!accessLoading && assignments.length === 0 && <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">Belum ada assignment.</div>}
-              {assignments.map((assignment) => (
-                <div key={assignment.id} className="flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="truncate font-medium">{assignment.name}</p><p className="truncate text-xs text-muted-foreground">{assignment.email}</p>
-                    <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">{assignment.user_id}</p>
+            {accessClient?.access_policy === "assigned_only" && (
+              <>
+                <form onSubmit={saveAssignment} className="grid gap-4 rounded-lg border p-4">
+                  <div className="flex items-center gap-2 font-medium"><UserPlus className="size-4" />Tambahkan akses pengguna</div>
+                  <div className="space-y-2">
+                    <Label htmlFor="assignment-identifier">ID pengguna atau email</Label>
+                    <div className="relative">
+                      <Input
+                        id="assignment-identifier"
+                        value={assignmentIdentifier}
+                        onChange={(event) => updateAssignmentIdentifier(event.target.value)}
+                        placeholder="UUID lengkap atau anggota@example.com"
+                        autoComplete="off"
+                        className={assignmentLookupLoading ? "pr-10" : undefined}
+                        required
+                      />
+                      {assignmentLookupLoading && <Spinner className="absolute right-3 top-1/2 -translate-y-1/2" />}
+                    </div>
+                    <p className="text-xs leading-relaxed text-muted-foreground">Pencarian otomatis hanya berjalan untuk UUID lengkap atau format email lengkap. Nilai harus cocok persis.</p>
+                    {assignmentLookupMessage && <p className="text-xs text-destructive">{assignmentLookupMessage}</p>}
                   </div>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild><Button type="button" size="sm" variant="outline" className="text-destructive hover:text-destructive"><Trash2 />Cabut</Button></AlertDialogTrigger>
-                    <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Cabut akses pengguna?</AlertDialogTitle><AlertDialogDescription>{assignment.name} tidak dapat login lagi ke aplikasi ini. Token dan authorization code aktifnya juga dicabut.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={() => removeAssignment(assignment)}>Cabut akses</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
-                  </AlertDialog>
+
+                  {assignmentCandidate && (
+                    <div className="flex flex-col gap-3 rounded-lg border bg-muted/20 p-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{assignmentCandidate.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{assignmentCandidate.email}</p>
+                        <p className="mt-1 truncate font-mono text-[11px] text-muted-foreground">{assignmentCandidate.user_id}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Badge variant={candidateAssigned ? "secondary" : "outline"}>{candidateAssigned ? "Sudah memiliki akses" : "Akun ditemukan"}</Badge>
+                        {candidateAssigned && assignmentCandidate.user_id !== accessClient.owner_id && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild><Button type="button" size="sm" variant="outline" className="text-destructive hover:text-destructive"><Trash2 />Cabut</Button></AlertDialogTrigger>
+                            <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Cabut akses pengguna?</AlertDialogTitle><AlertDialogDescription>{assignmentCandidate.name} tidak dapat login lagi ke aplikasi ini. Token dan authorization code aktifnya juga dicabut.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Batal</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={removeCandidateAssignment}>Cabut akses</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button type="button" variant="outline" onClick={() => { setAssignmentIdentifier(""); setAssignmentCandidate(null); setCandidateAssigned(false); setAssignmentLookupMessage(null); }}>Bersihkan</Button>
+                    {!candidateAssigned && <Button disabled={!assignmentCandidate || assignmentSubmitting}>{assignmentSubmitting && <Spinner />}Tambahkan akses</Button>}
+                  </div>
+                </form>
+
+                <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+                  <div><p className="font-medium">Total pengguna ditugaskan</p><p className="text-xs text-muted-foreground">Cari UUID atau email lengkap di atas untuk menambah atau mencabut akses.</p></div>
+                  <Badge variant="secondary" className="shrink-0 text-sm">{accessClient.assignment_count}</Badge>
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -479,7 +554,10 @@ export default function AplikasiPage() {
               </div>
             </CardHeader>
             <CardContent className="space-y-5">
-              <Button variant="outline" className="w-full" onClick={() => openAccessDialog(client)}><Users />Kelola akses pengguna</Button>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button variant="outline" asChild><Link href={`/dashboard/aplikasi/${encodeURIComponent(client.client_id)}`}><FileText />Lihat detail</Link></Button>
+                <Button variant="outline" onClick={() => openAccessDialog(client)}><Users />Kelola akses</Button>
+              </div>
               <div>
                 <p className="text-xs font-medium text-muted-foreground">CLIENT ID</p>
                 <div className="mt-1 flex min-w-0 items-center gap-2"><code className="min-w-0 flex-1 truncate rounded-md bg-muted p-2 text-xs">{client.client_id}</code><Button size="icon" variant="outline" onClick={() => copy(client.client_id)} aria-label="Salin client ID"><Copy /></Button></div>

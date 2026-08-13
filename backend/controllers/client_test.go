@@ -55,6 +55,21 @@ func TestNormalizeClientScopesDefaultsToDashboardScopes(t *testing.T) {
 	}
 }
 
+func TestAssignmentIdentifierRequiresCompleteEmailOrUUID(t *testing.T) {
+	valid := []string{"anggota@example.com", "852fcc86-51a7-435b-9ee5-61d7df7c4e71"}
+	for _, value := range valid {
+		if !validAssignmentIdentifier(value) {
+			t.Fatalf("complete identifier %q must be valid", value)
+		}
+	}
+	invalid := []string{"", "anggota", "anggota@", "anggota@example", "852fcc86-51a7"}
+	for _, value := range invalid {
+		if validAssignmentIdentifier(value) {
+			t.Fatalf("partial identifier %q must be invalid", value)
+		}
+	}
+}
+
 func TestValidateRedirectURIsRejectsUnsafeValues(t *testing.T) {
 	for _, value := range []string{
 		"https://example.org/callback#fragment",

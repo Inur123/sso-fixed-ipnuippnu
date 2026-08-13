@@ -13,7 +13,7 @@ import {
 import { useAuth } from "@/components/auth-provider";
 import { Brand } from "@/components/brand";
 import { Button } from "@/components/ui/button";
-import { PUBLIC_DOCUMENTATION_URL } from "@/lib/public-env";
+import { PUBLIC_DOCUMENTATION_URL, PUBLIC_ORGANIZATION_NAME } from "@/lib/public-env";
 
 const integrationSteps = [
   {
@@ -77,13 +77,13 @@ export default function Home() {
         <div className="mx-auto flex max-w-5xl flex-col items-center px-4 py-20 text-center sm:px-6 sm:py-28 lg:px-8 lg:py-32">
           <div className="inline-flex items-center gap-2 rounded-full border bg-[#f8faf8] px-3 py-1.5 text-xs font-medium text-muted-foreground">
             <CheckCircle2 className="size-3.5 text-primary" />
-            Single Sign-On IPNU IPPNU
+            {PUBLIC_ORGANIZATION_NAME}
           </div>
           <h1 className="mt-7 max-w-4xl text-4xl leading-[1.08] font-semibold tracking-[-0.045em] sm:text-6xl lg:text-7xl">
-            Satu akun untuk seluruh layanan organisasi.
+            Satu akun untuk layanan {PUBLIC_ORGANIZATION_NAME}.
           </h1>
           <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Masuk sekali, kelola aplikasi OAuth, dan kendalikan izin akun dari portal identitas IPNU IPPNU yang sederhana dan aman.
+            Masuk sekali, kelola aplikasi OAuth, dan kendalikan izin akun organisasi dari satu portal identitas yang sederhana dan aman.
           </p>
           <div className="mt-9 flex min-h-[6.25rem] w-full max-w-sm flex-col justify-center gap-3 sm:min-h-11 sm:w-auto sm:max-w-none sm:flex-row" aria-busy={loading}>
             <Button size="lg" className="px-6" asChild>
@@ -144,7 +144,7 @@ export default function Home() {
       <footer className="bg-background">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <Brand />
-          <p className="text-xs text-muted-foreground">Pusat identitas dan akses layanan IPNU IPPNU.</p>
+          <p className="text-xs text-muted-foreground">Pusat identitas dan akses resmi {PUBLIC_ORGANIZATION_NAME}.</p>
         </div>
       </footer>
     </main>

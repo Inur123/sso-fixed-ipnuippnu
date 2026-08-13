@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Ban, BadgeCheck, ChevronLeft, ChevronRight, CircleUserRound, MoreHorizontal, Search, ShieldAlert, ShieldCheck, Trash2, UserCheck, UsersRound } from "lucide-react";
+import { Ban, BadgeCheck, CircleUserRound, MoreHorizontal, Search, ShieldAlert, ShieldCheck, Trash2, UserCheck, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
+import { DataPagination } from "@/components/data-pagination";
 import { PageHeader } from "@/components/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogMedia, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -182,12 +183,7 @@ export default function PenggunaPage() {
             </>
           )}
         </CardContent>
-        {!loading && users.length > 0 && (
-          <div className="flex flex-col gap-3 border-t px-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-muted-foreground">Halaman {page} dari {totalPages} · {total} akun</p>
-            <div className="flex gap-2"><Button variant="outline" size="sm" disabled={page <= 1} onClick={() => { setLoading(true); setErrorMessage(""); setPage((value) => Math.max(1, value - 1)); }}><ChevronLeft />Sebelumnya</Button><Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => { setLoading(true); setErrorMessage(""); setPage((value) => Math.min(totalPages, value + 1)); }}>Berikutnya<ChevronRight /></Button></div>
-          </div>
-        )}
+        {!loading && users.length > 0 && <DataPagination page={page} totalPages={totalPages} total={total} itemLabel="akun" onPageChange={(nextPage) => { setLoading(true); setErrorMessage(""); setPage(nextPage); }} />}
       </Card>
 
       <AlertDialog open={Boolean(pendingStatusUser)} onOpenChange={(open) => { if (!open) setPendingStatusUser(null); }}>

@@ -108,6 +108,25 @@ func auditWithActor(c *gin.Context, actorID *string, action, targetType, targetI
 	}
 }
 
+// auditLoginWithActor menambahkan konteks perangkat dan lokasi yang sudah
+// divalidasi handler login. Data ini hanya dipakai untuk event autentikasi.
+func auditLoginWithActor(c *gin.Context, actorID *string, action, targetType, targetID, description, device string, latitude, longitude, accuracy float64) {
+	event, ok := newAuditEvent(actorID, action, targetType, targetID, description, auditIPAddressFromContext(c))
+	if !ok {
+		return
+	}
+	event.Device = truncateRunes(strings.Join(strings.Fields(device), " "), 500)
+	event.Latitude = &latitude
+	event.Longitude = &longitude
+	event.Accuracy = &accuracy
+	startAuditWorker()
+	select {
+	case auditQueue <- event:
+	default:
+		log.Printf("audit queue full; event dropped action=%q", event.Action)
+	}
+}
+
 func startAuditWorker() {
 	auditWorkerOnce.Do(func() {
 		go func() {
@@ -185,6 +204,10 @@ type AuditLogResponse struct {
 	TargetID    string    `json:"target_id"`
 	Description string    `json:"description"`
 	IPAddress   string    `json:"ip_address"`
+	Device      string    `json:"device"`
+	Latitude    *float64  `json:"latitude"`
+	Longitude   *float64  `json:"longitude"`
+	Accuracy    *float64  `json:"accuracy"`
 	CreatedAt   time.Time `json:"created_at"`
 }
 
@@ -251,7 +274,8 @@ func AdminGetAuditLogs(c *gin.Context) {
 		response := AuditLogResponse{
 			ID: item.ID, ActorID: item.ActorID, Action: item.Action,
 			TargetType: item.TargetType, TargetID: item.TargetID,
-			Description: item.Description, IPAddress: item.IPAddress, CreatedAt: item.CreatedAt,
+			Description: item.Description, IPAddress: item.IPAddress, Device: item.Device,
+			Latitude: item.Latitude, Longitude: item.Longitude, Accuracy: item.Accuracy, CreatedAt: item.CreatedAt,
 		}
 		if item.Actor != nil {
 			response.ActorName = item.Actor.Name

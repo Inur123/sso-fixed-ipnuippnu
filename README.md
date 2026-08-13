@@ -1,4 +1,6 @@
-# IPNU IPPNU ID
+# IPNU IPPNU Magetan ID
+
+Pusat identitas dan Single Sign-On resmi PC IPNU IPPNU Kabupaten Magetan.
 
 Identity Provider terpusat untuk ekosistem aplikasi IPNU dan IPPNU. Backend menggunakan Go, Gin, GORM, dan PostgreSQL; portal akun menggunakan Next.js, TypeScript, Tailwind CSS, dan komponen shadcn/ui. Seluruh project dijalankan langsung tanpa Docker.
 
@@ -91,7 +93,7 @@ Endpoint discovery dan protokol:
 
 Request authorization wajib memakai `response_type=code`, `state`, exact `redirect_uri`, dan PKCE `S256`. Gunakan `nonce` saat meminta scope `openid`. Sesi aplikasi di portal merepresentasikan grant aplikasi yang masih aktif, bukan daftar browser atau perangkat. Tombol **Cabut akses** menghentikan token/grant di Identity Provider; sesi lokal yang sudah dibuat aplikasi klien baru berakhir bila aplikasi tersebut juga mengimplementasikan logout sendiri atau OIDC front/back-channel logout.
 
-Setiap aplikasi dapat memakai policy `assigned_only` (default aman) atau `all_active_users`. Pada policy terbatas, pemilik aplikasi menambahkan pengguna berdasarkan UUID atau email secara persis. Pemeriksaan dilakukan saat authorization, pertukaran code/refresh, dan UserInfo; pencabutan assignment langsung mencabut grant lama.
+Setiap aplikasi dapat memakai policy `assigned_only` (default aman) atau `all_active_users`. Pada policy terbatas, pemilik aplikasi menambahkan pengguna berdasarkan UUID atau email secara persis. Halaman detail aplikasi memisahkan informasi umum client dari daftar pengguna yang ditugaskan dan memuat daftar tersebut secara terpaginasikan. Pemeriksaan dilakukan saat authorization, pertukaran code/refresh, dan UserInfo; pencabutan assignment langsung mencabut grant lama.
 
 Role `super_admin` dan `anggota` adalah otoritas internal platform dan tidak dibagikan ke relying party. Role serta permission bisnis dikelola sendiri oleh aplikasi tujuan dengan identitas stabil `(iss, sub)`.
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { AlertCircle, Ban, LogIn, MailWarning } from "lucide-react";
+import { AlertCircle, Ban, LocateFixed, LogIn, MailWarning } from "lucide-react";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
@@ -17,6 +17,29 @@ import { Spinner } from "@/components/ui/spinner";
 import { APIError, apiFetch, getErrorMessage, type User } from "@/lib/api";
 
 const DEFAULT_LOGIN_DESTINATION = "/dashboard/profil";
+
+function requestLocation(): Promise<GeolocationPosition> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error("Browser ini tidak mendukung akses lokasi."));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: false,
+      timeout: 15000,
+      maximumAge: 60000,
+    });
+  });
+}
+
+function locationErrorMessage(error: unknown) {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = Number(error.code);
+    if (code === 1) return "Izin lokasi wajib diberikan untuk masuk.";
+    if (code === 3) return "Lokasi tidak berhasil diperoleh. Silakan coba lagi.";
+  }
+  return error instanceof Error ? error.message : "Lokasi tidak berhasil diperoleh.";
+}
 
 function safeLoginDestination(value: string | null) {
   if (!value || typeof window === "undefined") {
@@ -68,16 +91,30 @@ function LoginForm() {
     setError("");
     setErrorCode("");
     try {
+      const position = await requestLocation();
       const data = await apiFetch<{ user: User }>("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email,
+          password,
+          location: {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          },
+          device: {
+            platform: navigator.platform || "Browser",
+            language: navigator.language,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          },
+        }),
       });
       setUser(data.user);
       toast.success("Login berhasil. Selamat datang kembali.");
       router.replace(safeLoginDestination(searchParams.get("callbackUrl")));
       router.refresh();
     } catch (submitError) {
-      const message = getErrorMessage(submitError);
+      const message = submitError instanceof APIError ? getErrorMessage(submitError) : locationErrorMessage(submitError);
       setError(message);
       toast.error(message);
       if (submitError instanceof APIError) setErrorCode(submitError.code ?? "");
@@ -113,8 +150,9 @@ function LoginForm() {
         <PasswordInput id="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
       </div>
       <Button className="w-full min-w-0" size="lg" disabled={submitting}>
-        {submitting ? <Spinner /> : <LogIn />}{submitting ? "Memeriksa akun..." : "Masuk"}
+        {submitting ? <Spinner /> : <LogIn />}{submitting ? "Memeriksa lokasi dan akun..." : "Masuk"}
       </Button>
+      <p className="flex items-start gap-2 text-xs leading-5 text-muted-foreground"><LocateFixed className="mt-0.5 size-3.5 shrink-0" />Login memerlukan izin lokasi. Lokasi, IP, dan perangkat dicatat untuk keamanan akun.</p>
       <p className="break-words text-center text-sm leading-6 text-muted-foreground">
         Belum memiliki akun? <Link href="/register" className="font-medium text-primary underline-offset-4 hover:underline">Daftar</Link>
       </p>

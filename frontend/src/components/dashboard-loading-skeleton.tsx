@@ -144,6 +144,45 @@ function ApplicationsSkeleton() {
   );
 }
 
+function ApplicationDetailSkeleton() {
+  return (
+    <div className="space-y-7">
+      <div className="flex items-start gap-2">
+        <Skeleton className="size-9 shrink-0" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <Skeleton className="h-9 w-64 max-w-full" />
+          <Skeleton className="h-4 w-full max-w-md" />
+        </div>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,.65fr)]">
+        <div className="rounded-xl border bg-card p-5">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="mt-2 h-4 w-72 max-w-full" />
+          <div className="mt-6 grid gap-5 sm:grid-cols-2">
+            <FieldSkeleton wide />
+            <FieldSkeleton />
+            <FieldSkeleton />
+            <div className="space-y-2 sm:col-span-2"><Skeleton className="h-4 w-24" /><Skeleton className="h-20 w-full" /></div>
+          </div>
+        </div>
+        <div className="h-fit rounded-xl border bg-card p-5">
+          <Skeleton className="size-10 rounded-xl" />
+          <Skeleton className="mt-4 h-5 w-36" />
+          <Skeleton className="mt-2 h-4 w-full" />
+          <Skeleton className="mt-6 h-9 w-20" />
+        </div>
+      </div>
+      <div className="overflow-hidden rounded-xl border bg-card">
+        <div className="flex flex-col gap-4 border-b p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-2"><Skeleton className="h-5 w-48" /><Skeleton className="h-4 w-72 max-w-full" /></div>
+          <Skeleton className="h-10 w-full sm:w-80" />
+        </div>
+        <TableRowsSkeleton count={3} />
+      </div>
+    </div>
+  );
+}
+
 function UsersSkeleton() {
   return (
     <div className="space-y-7">
@@ -180,6 +219,7 @@ function AuditLogSkeleton() {
 function RouteSkeleton({ pathname }: { pathname: string }) {
   if (pathname.startsWith("/dashboard/keamanan")) return <SecuritySkeleton />;
   if (pathname.startsWith("/dashboard/sesi")) return <SessionsSkeleton />;
+  if (/^\/dashboard\/aplikasi\/[^/]+/.test(pathname)) return <ApplicationDetailSkeleton />;
   if (pathname.startsWith("/dashboard/aplikasi")) return <ApplicationsSkeleton />;
   if (pathname.startsWith("/dashboard/pengguna")) return <UsersSkeleton />;
   if (pathname.startsWith("/dashboard/audit-log")) return <AuditLogSkeleton />;

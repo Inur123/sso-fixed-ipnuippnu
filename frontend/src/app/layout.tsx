@@ -16,6 +16,11 @@ export const metadata: Metadata = {
   description: PUBLIC_APP_DESCRIPTION,
   applicationName: PUBLIC_APP_NAME,
   keywords: ["IPNU", "IPPNU", "SSO", "OAuth 2.0", "OpenID Connect"],
+  icons: {
+    icon: "/images/logo-sso.png",
+    shortcut: "/images/logo-sso.png",
+    apple: "/images/logo-sso.png",
+  },
 };
 
 async function getInitialUser(): Promise<User | null> {

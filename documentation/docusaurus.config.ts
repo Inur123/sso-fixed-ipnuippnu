@@ -12,11 +12,15 @@ function requiredEnvironment(name: string, value: string | undefined): string {
 
 const documentationName = requiredEnvironment('DOCS_APP_NAME', process.env.DOCS_APP_NAME);
 const documentationTagline = requiredEnvironment('DOCS_TAGLINE', process.env.DOCS_TAGLINE);
+const organizationName = requiredEnvironment('DOCS_ORGANIZATION_NAME', process.env.DOCS_ORGANIZATION_NAME);
 
 const config: Config = {
   title: documentationName,
   tagline: documentationTagline,
-  favicon: 'img/favicon.svg',
+  favicon: 'img/logo-sso.png',
+  customFields: {
+    organizationName,
+  },
 
   url: requiredEnvironment('DOCS_SITE_URL', process.env.DOCS_SITE_URL),
   baseUrl: requiredEnvironment('DOCS_BASE_URL', process.env.DOCS_BASE_URL),
@@ -53,8 +57,8 @@ const config: Config = {
     navbar: {
       title: documentationName,
       logo: {
-        alt: 'Logo IPNU IPPNU ID',
-        src: 'img/logo.svg',
+        alt: `Logo ${documentationName}`,
+        src: 'img/logo-sso.png',
       },
       items: [
         {

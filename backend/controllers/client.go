@@ -66,6 +66,13 @@ type ClientAssignmentResponse struct {
 	Avatar string `json:"avatar"`
 }
 
+type AssignableUserResponse struct {
+	UserID string `json:"user_id"`
+	Name   string `json:"name"`
+	Email  string `json:"email"`
+	Avatar string `json:"avatar"`
+}
+
 func CreateClient(c *gin.Context) {
 	c.Header("Cache-Control", "no-store")
 	var req CreateClientRequest

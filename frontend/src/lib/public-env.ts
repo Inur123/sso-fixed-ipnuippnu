@@ -30,3 +30,8 @@ export const PUBLIC_APP_DESCRIPTION = requiredPublicValue(
   "NEXT_PUBLIC_APP_DESCRIPTION",
   process.env.NEXT_PUBLIC_APP_DESCRIPTION,
 );
+
+export const PUBLIC_ORGANIZATION_NAME = requiredPublicValue(
+  "NEXT_PUBLIC_ORGANIZATION_NAME",
+  process.env.NEXT_PUBLIC_ORGANIZATION_NAME,
+);

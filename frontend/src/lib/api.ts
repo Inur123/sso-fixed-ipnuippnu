@@ -43,6 +43,22 @@ export interface OAuthClientAssignment {
   avatar: string;
 }
 
+export interface AssignableUser {
+  user_id: string;
+  name: string;
+  email: string;
+  avatar: string;
+}
+
+export interface ClientAssignmentsResponse {
+  client: OAuthClient;
+  assignments: OAuthClientAssignment[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 interface APIErrorBody {
   error?: string;
   message?: string;

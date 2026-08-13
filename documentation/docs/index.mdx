@@ -9,12 +9,13 @@ description: Dokumentasi resmi integrasi aplikasi dengan SSO IPNU IPPNU ID.
 ---
 
 import Link from '@docusaurus/Link';
+import OrganizationName from '@site/src/components/OrganizationName';
 
 <section className="docs-hero">
   <span className="docs-eyebrow">OAuth 2.0 • OpenID Connect • PKCE S256</span>
-  <h1>Satu identitas, integrasi yang dapat diaudit.</h1>
+  <h1>SSO resmi <OrganizationName />.</h1>
   <p>
-    Panduan implementasi untuk menghubungkan aplikasi organisasi ke IPNU IPPNU ID
+    Panduan implementasi untuk menghubungkan aplikasi layanan <OrganizationName /> ke IPNU IPPNU Magetan ID
     dengan Authorization Code, PKCE, ID token RS256, kendali akses per aplikasi,
     dan refresh token rotation.
   </p>
@@ -26,7 +27,7 @@ import Link from '@docusaurus/Link';
 
 ## Arsitektur ringkas
 
-IPNU IPPNU ID bertindak sebagai **Authorization Server** dan **OpenID Provider**. Aplikasi yang terhubung adalah **Relying Party (RP)** sekaligus OAuth client. Alur yang didukung adalah Authorization Code dengan PKCE S256 untuk confidential client.
+IPNU IPPNU Magetan ID bertindak sebagai **Authorization Server** dan **OpenID Provider** resmi <OrganizationName />. Aplikasi yang terhubung adalah **Relying Party (RP)** sekaligus OAuth client. Alur yang didukung adalah Authorization Code dengan PKCE S256 untuk confidential client.
 
 ```text
 Browser pengguna

@@ -82,6 +82,10 @@ type AuditLog struct {
 	TargetID    string    `gorm:"type:varchar(128);index:idx_audit_target,priority:2" json:"target_id"`
 	Description string    `gorm:"type:varchar(500);not null" json:"description"`
 	IPAddress   string    `gorm:"type:varchar(64)" json:"ip_address"`
+	Device      string    `gorm:"type:varchar(500)" json:"device"`
+	Latitude    *float64  `gorm:"type:double precision" json:"latitude,omitempty"`
+	Longitude   *float64  `gorm:"type:double precision" json:"longitude,omitempty"`
+	Accuracy    *float64  `gorm:"type:double precision" json:"accuracy,omitempty"`
 	CreatedAt   time.Time `gorm:"index:idx_audit_action_created,priority:2;index:idx_audit_actor_created,priority:2;index" json:"created_at"`
 }
 

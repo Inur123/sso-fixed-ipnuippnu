@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import {
   Activity,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
   Filter,
   Globe2,
+  MapPin,
+  MonitorSmartphone,
   Search,
   ShieldAlert,
   UserRound,
@@ -15,12 +15,14 @@ import {
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
+import { DataPagination } from "@/components/data-pagination";
 import { PageHeader } from "@/components/page-header";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,6 +67,10 @@ interface AuditLog {
   target_id?: string | null;
   description: string;
   ip_address: string;
+  device: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  accuracy?: number | null;
   created_at: string;
 }
 
@@ -96,6 +102,12 @@ function actorLabel(log: AuditLog) {
   return log.actor_name || log.actor_email || "Sistem";
 }
 
+function locationLabel(log: AuditLog) {
+  if (log.latitude == null || log.longitude == null) return "—";
+  const accuracy = log.accuracy == null ? "" : ` (±${Math.round(log.accuracy)} m)`;
+  return `${log.latitude.toFixed(6)}, ${log.longitude.toFixed(6)}${accuracy}`;
+}
+
 export default function AuditLogPage() {
   const { user } = useAuth();
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -106,6 +118,7 @@ export default function AuditLogPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -230,41 +243,30 @@ export default function AuditLogPage() {
                       <TableHead className="pl-4">Waktu</TableHead>
                       <TableHead>Aktor</TableHead>
                       <TableHead>Aktivitas</TableHead>
-                      <TableHead>Detail</TableHead>
-                      <TableHead className="pr-4">IP</TableHead>
+                      <TableHead>Ringkasan</TableHead>
+                      <TableHead className="pr-4 text-right">Detail</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {logs.map((log) => <AuditTableRow key={log.id} log={log} />)}
+                    {logs.map((log) => <AuditTableRow key={log.id} log={log} onDetail={() => setSelectedLog(log)} />)}
                   </TableBody>
                 </Table>
               </div>
               <div className="grid min-w-0 gap-3 px-4 md:hidden">
-                {logs.map((log) => <AuditMobileCard key={log.id} log={log} />)}
+                {logs.map((log) => <AuditMobileCard key={log.id} log={log} onDetail={() => setSelectedLog(log)} />)}
               </div>
             </>
           )}
         </CardContent>
 
-        {!loading && logs.length > 0 && (
-          <div className="flex flex-col gap-3 border-t px-4 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-muted-foreground">Halaman {page} dari {totalPages} · {total} aktivitas</p>
-            <div className="grid grid-cols-2 gap-2 sm:flex">
-              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => { setLoading(true); setPage((value) => Math.max(1, value - 1)); }}>
-                <ChevronLeft />Sebelumnya
-              </Button>
-              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => { setLoading(true); setPage((value) => Math.min(totalPages, value + 1)); }}>
-                Berikutnya<ChevronRight />
-              </Button>
-            </div>
-          </div>
-        )}
+        {!loading && logs.length > 0 && <DataPagination page={page} totalPages={totalPages} total={total} itemLabel="aktivitas" onPageChange={(nextPage) => { setLoading(true); setPage(nextPage); }} />}
       </Card>
+      <AuditDetailDialog log={selectedLog} open={Boolean(selectedLog)} onOpenChange={(open) => { if (!open) setSelectedLog(null); }} />
     </div>
   );
 }
 
-function AuditTableRow({ log }: { log: AuditLog }) {
+function AuditTableRow({ log, onDetail }: { log: AuditLog; onDetail: () => void }) {
   return (
     <TableRow>
       <TableCell className="w-40 pl-4 text-xs whitespace-normal text-muted-foreground">{formatDate(log.created_at)}</TableCell>
@@ -274,17 +276,14 @@ function AuditTableRow({ log }: { log: AuditLog }) {
       </TableCell>
       <TableCell className="whitespace-normal"><Badge variant="secondary">{actionLabel(log.action)}</Badge></TableCell>
       <TableCell className="max-w-md whitespace-normal">
-        <p className="break-words text-sm leading-5">{log.description || "—"}</p>
-        <p className="mt-1 truncate text-xs text-muted-foreground">
-          {log.target_type || "sistem"}{log.target_id ? ` · ${log.target_id}` : ""}
-        </p>
+        <p className="line-clamp-1 text-sm">{log.description || "—"}</p>
       </TableCell>
-      <TableCell className="pr-4 font-mono text-xs whitespace-normal text-muted-foreground">{log.ip_address || "—"}</TableCell>
+      <TableCell className="pr-4 text-right"><Button variant="outline" size="sm" onClick={onDetail}>Lihat detail</Button></TableCell>
     </TableRow>
   );
 }
 
-function AuditMobileCard({ log }: { log: AuditLog }) {
+function AuditMobileCard({ log, onDetail }: { log: AuditLog; onDetail: () => void }) {
   return (
     <article className="min-w-0 rounded-xl border p-4">
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
@@ -298,17 +297,39 @@ function AuditMobileCard({ log }: { log: AuditLog }) {
           <dt className="sr-only">Aktor</dt>
           <dd className="min-w-0 truncate">{actorLabel(log)}{log.actor_name && log.actor_email ? ` · ${log.actor_email}` : ""}</dd>
         </div>
-        <div className="flex min-w-0 items-center gap-2">
-          <Activity className="size-3.5 shrink-0 text-muted-foreground" />
-          <dt className="sr-only">Target</dt>
-          <dd className="min-w-0 truncate text-muted-foreground">{log.target_type || "sistem"}{log.target_id ? ` · ${log.target_id}` : ""}</dd>
-        </div>
-        <div className="flex min-w-0 items-center gap-2">
-          <Globe2 className="size-3.5 shrink-0 text-muted-foreground" />
-          <dt className="sr-only">Alamat IP</dt>
-          <dd className="min-w-0 truncate font-mono text-muted-foreground">{log.ip_address || "—"}</dd>
-        </div>
       </dl>
+      <Button className="mt-4 w-full" variant="outline" size="sm" onClick={onDetail}>Lihat detail</Button>
     </article>
+  );
+}
+
+function AuditDetailDialog({ log, open, onOpenChange }: { log: AuditLog | null; open: boolean; onOpenChange: (open: boolean) => void }) {
+  if (!log) return null;
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Detail audit log</DialogTitle>
+          <DialogDescription>{actionLabel(log.action)} · {formatDate(log.created_at)}</DialogDescription>
+        </DialogHeader>
+        <dl className="grid min-w-0 gap-4 text-sm sm:grid-cols-2">
+          <AuditDetail label="Aktor" value={log.actor_name && log.actor_email ? `${log.actor_name} · ${log.actor_email}` : actorLabel(log)} icon={<UserRound />} />
+          <AuditDetail label="Alamat IP" value={log.ip_address || "—"} icon={<Globe2 />} mono />
+          <AuditDetail label="Target" value={`${log.target_type || "sistem"}${log.target_id ? ` · ${log.target_id}` : ""}`} icon={<Activity />} />
+          <AuditDetail label="Lokasi" value={locationLabel(log)} icon={<MapPin />} mono />
+          <div className="sm:col-span-2"><AuditDetail label="Perangkat" value={log.device || "—"} icon={<MonitorSmartphone />} /></div>
+          <div className="sm:col-span-2"><AuditDetail label="Keterangan" value={log.description || "—"} icon={<Clock3 />} /></div>
+        </dl>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AuditDetail({ label, value, icon, mono = false }: { label: string; value: string; icon: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="min-w-0 rounded-xl border p-4">
+      <dt className="flex items-center gap-2 font-medium text-muted-foreground">{<span className="[&>svg]:size-4">{icon}</span>}{label}</dt>
+      <dd className={`mt-2 break-words leading-6 ${mono ? "font-mono text-xs" : ""}`}>{value}</dd>
+    </div>
   );
 }
