@@ -13,6 +13,8 @@ type rateEntry struct {
 	resetAt time.Time
 }
 
+const maxRateLimitEntries = 8192
+
 // RateLimit memberi perlindungan brute-force dasar untuk satu instance.
 // Deployment multi-instance sebaiknya menggantinya dengan limiter bersama (mis. Redis).
 func RateLimit(limit int, window time.Duration) gin.HandlerFunc {
@@ -32,6 +34,13 @@ func RateLimit(limit int, window time.Duration) gin.HandlerFunc {
 			}
 		}
 		entry, exists := entries[key]
+		if !exists && len(entries) >= maxRateLimitEntries {
+			mu.Unlock()
+			c.Header("Retry-After", fmtInt(max(int(window.Seconds()), 1)))
+			respondError(c, http.StatusTooManyRequests, "rate_limited", "Terlalu banyak sumber request aktif. Coba kembali beberapa saat lagi.")
+			c.Abort()
+			return
+		}
 		if !exists || now.After(entry.resetAt) {
 			entry = rateEntry{resetAt: now.Add(window)}
 		}

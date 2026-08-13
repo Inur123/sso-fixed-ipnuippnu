@@ -97,6 +97,13 @@ Setiap aplikasi dapat memakai policy `assigned_only` (default aman) atau `all_ac
 
 Role `super_admin` dan `anggota` adalah otoritas internal platform dan tidak dibagikan ke relying party. Role serta permission bisnis dikelola sendiri oleh aplikasi tujuan dengan identitas stabil `(iss, sub)`.
 
+Client `assigned_only` dapat mengaktifkan provisioning outbox opsional agar
+aplikasi tujuan menerima `user.assigned`, `user.updated`, dan `user.unassigned`
+sebelum atau tanpa login pertama. Penulisan event atomik dengan assignment,
+sedangkan delivery HMAC berjalan asinkron, idempotent, memakai retry exponential,
+timer dinamis, serta worker terbatas. Ini bukan SCIM; kontrak dan verifikasi
+penerima dijelaskan pada dokumentasi **Provisioning pengguna realtime**.
+
 Panduan integrasi lengkap tersedia sebagai situs Docusaurus terpisah di folder [`documentation`](documentation/README.md). Untuk menjalankannya secara lokal:
 
 ```bash
@@ -119,6 +126,10 @@ Dokumentasi akan tersedia di `http://localhost:3001` dan memuat quickstart, Auth
 - Samakan `SESSION_COOKIE_NAME` dengan `BACKEND_SESSION_COOKIE_NAME`. Jika frontend dan backend berbeda subdomain, isi `SESSION_COOKIE_DOMAIN` dengan parent domain yang menaungi keduanya.
 - Simpan file `.env` di server/secret manager dan jangan commit ke Git.
 - Pastikan SMTP menggunakan App Password yang masih valid.
+- Atur pool PostgreSQL (`DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`, lifetime) sesuai batas penyedia database.
+- Jika memakai reverse proxy, isi `BACKEND_TRUSTED_PROXIES` hanya dengan IP/CIDR proxy tersebut; jangan percaya seluruh internet.
+- Untuk provisioning, gunakan URL HTTPS, secret unik per aplikasi, dan pantau event `dead` melalui endpoint admin.
+- Gunakan `/health` sebagai liveness dan `/ready` sebagai readiness database.
 
 ## Validasi
 

@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm/clause"
 	"sso-backend/database"
 	"sso-backend/models"
+	"sso-backend/provisioning"
 )
 
 func GetClientAssignments(c *gin.Context) {
@@ -155,6 +156,9 @@ func AssignClientUser(c *gin.Context) {
 		if err := revokeClientUserGrant(tx, client.ID, user.ID, time.Now().UTC()); err != nil {
 			return err
 		}
+		if err := provisioning.Enqueue(tx, provisioning.EventAssigned, client, user); err != nil {
+			return err
+		}
 		assignment.User = user
 		return nil
 	})
@@ -166,6 +170,7 @@ func AssignClientUser(c *gin.Context) {
 		respondClientManagementError(c, err)
 		return
 	}
+	provisioning.Notify()
 	auditFromContext(c, AuditOAuthClientAssignmentUpdate, "oauth_client", c.Param("id"), "Akses pengguna ke aplikasi ditambahkan.")
 	c.Header("Cache-Control", "no-store")
 	c.JSON(http.StatusOK, gin.H{"message": "Akses pengguna berhasil ditambahkan.", "assignment": clientAssignmentResponse(assignment)})
@@ -181,13 +186,16 @@ func DeleteClientAssignment(c *gin.Context) {
 		if client.AccessPolicy == models.AccessPolicyAssignedOnly && client.OwnerID == c.Param("userId") {
 			return errOwnerAssignmentRequired
 		}
-		if err := tx.Where("client_id = ? AND user_id = ?", client.ID, c.Param("userId")).First(&deleted).Error; err != nil {
+		if err := tx.Preload("User").Where("client_id = ? AND user_id = ?", client.ID, c.Param("userId")).First(&deleted).Error; err != nil {
 			return err
 		}
 		if err := tx.Delete(&deleted).Error; err != nil {
 			return err
 		}
-		return revokeClientUserGrant(tx, client.ID, deleted.UserID, time.Now().UTC())
+		if err := revokeClientUserGrant(tx, client.ID, deleted.UserID, time.Now().UTC()); err != nil {
+			return err
+		}
+		return provisioning.Enqueue(tx, provisioning.EventUnassigned, client, deleted.User)
 	})
 	if errors.Is(err, errOwnerAssignmentRequired) {
 		respondError(c, http.StatusConflict, "owner_assignment_required", "Pemilik harus tetap memiliki akses saat policy assigned_only digunakan.")
@@ -197,6 +205,7 @@ func DeleteClientAssignment(c *gin.Context) {
 		respondClientManagementError(c, err)
 		return
 	}
+	provisioning.Notify()
 	auditFromContext(c, AuditOAuthClientAssignmentDelete, "oauth_client", c.Param("id"), "Assignment pengguna aplikasi dihapus dan grant dicabut.")
 	c.JSON(http.StatusOK, gin.H{"message": "Akses pengguna dan seluruh grant aplikasi berhasil dicabut."})
 }

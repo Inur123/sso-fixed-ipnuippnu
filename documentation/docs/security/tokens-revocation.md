@@ -78,6 +78,11 @@ Mencabut grant di IPNU IPPNU ID **tidak otomatis menghapus cookie/session aplika
 
 Karena itu RP bertanggung jawab atas sesi lokalnya sendiri. Jangan membuat sesi lokal tanpa batas hanya karena ID token pernah valid. Terapkan absolute lifetime, revalidasi berkala yang proporsional dengan risiko, dan hentikan sesi ketika API issuer menolak token.
 
+Untuk client yang memakai [provisioning realtime](../protocol/provisioning.md),
+event `user.unassigned` menjadi sinyal tambahan agar backend RP segera mencabut
+membership dan seluruh sesi lokal subject tersebut. Event tetap harus
+diverifikasi dan diproses idempotent.
+
 ID token yang sudah diterbitkan adalah assertion bertanda tangan dan dapat lolos verifikasi offline sampai `exp`; pencabutan grant tidak menarik kembali file token tersebut. Jangan memakai ID token berulang kali sebagai session bearer.
 
 ## Perubahan akun

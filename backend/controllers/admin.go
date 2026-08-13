@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm/clause"
 	"sso-backend/database"
 	"sso-backend/models"
+	"sso-backend/provisioning"
 )
 
 const (
@@ -144,6 +145,13 @@ func AdminUpdateStatus(c *gin.Context) {
 		if err := tx.Model(&user).Update("is_active", *req.IsActive).Error; err != nil {
 			return err
 		}
+		eventType := provisioning.EventUnassigned
+		if *req.IsActive {
+			eventType = provisioning.EventAssigned
+		}
+		if err := provisioning.EnqueueForUser(tx, eventType, user); err != nil {
+			return err
+		}
 		if *req.IsActive {
 			return nil
 		}
@@ -169,6 +177,7 @@ func AdminUpdateStatus(c *gin.Context) {
 	}
 	user.IsActive = *req.IsActive
 	user.RefreshComputedFields()
+	provisioning.Notify()
 	message := "Akun pengguna berhasil diaktifkan."
 	if !*req.IsActive {
 		message = "Akun dinonaktifkan; seluruh sesi, authorization code, dan token aplikasi telah dicabut."
@@ -192,6 +201,9 @@ func AdminDeleteUser(c *gin.Context) {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&user, "id = ?", targetID).Error; err != nil {
 			return err
 		}
+		if err := provisioning.EnqueueForUser(tx, provisioning.EventUnassigned, user); err != nil {
+			return err
+		}
 
 		var ownedClientIDs []string
 		if err := tx.Unscoped().Model(&models.OAuthClient{}).
@@ -200,10 +212,17 @@ func AdminDeleteUser(c *gin.Context) {
 			return err
 		}
 
-		if err := tx.Unscoped().Where("user_id = ?", user.ID).Delete(&models.OAuthClientAssignment{}).Error; err != nil {
-			return err
-		}
 		if len(ownedClientIDs) > 0 {
+			var ownedAssignments []models.OAuthClientAssignment
+			if err := tx.Preload("Client").Preload("User").
+				Where("client_id IN ? AND is_active = ?", ownedClientIDs, true).Find(&ownedAssignments).Error; err != nil {
+				return err
+			}
+			for _, assignment := range ownedAssignments {
+				if err := provisioning.Enqueue(tx, provisioning.EventUnassigned, assignment.Client, assignment.User); err != nil {
+					return err
+				}
+			}
 			if err := tx.Unscoped().Where("client_id IN ?", ownedClientIDs).Delete(&models.OAuthClientAssignment{}).Error; err != nil {
 				return err
 			}
@@ -213,6 +232,9 @@ func AdminDeleteUser(c *gin.Context) {
 			if err := tx.Unscoped().Where("client_id IN ?", ownedClientIDs).Delete(&models.OAuthToken{}).Error; err != nil {
 				return err
 			}
+		}
+		if err := tx.Unscoped().Where("user_id = ?", user.ID).Delete(&models.OAuthClientAssignment{}).Error; err != nil {
+			return err
 		}
 		if err := tx.Unscoped().Where("user_id = ?", user.ID).Delete(&models.OAuthAuthCode{}).Error; err != nil {
 			return err
@@ -245,6 +267,7 @@ func AdminDeleteUser(c *gin.Context) {
 		return
 	}
 
+	provisioning.Notify()
 	auditFromContext(c, AuditUserDelete, "user", user.ID, "Akun pengguna dan seluruh data operasional miliknya dihapus permanen.")
 	c.JSON(http.StatusOK, gin.H{"message": "Pengguna, sesi, aplikasi, dan seluruh grant terkait berhasil dihapus permanen."})
 }

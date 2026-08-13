@@ -13,6 +13,7 @@ import (
 	"gorm.io/gorm/clause"
 	"sso-backend/database"
 	"sso-backend/models"
+	"sso-backend/provisioning"
 	"sso-backend/utils"
 )
 
@@ -35,8 +36,9 @@ type RegenerateClientSecretRequest struct {
 }
 
 var (
-	errSecretVersionConflict  = errors.New("client secret version conflict")
-	errSecretVersionExhausted = errors.New("client secret version exhausted")
+	errSecretVersionConflict            = errors.New("client secret version conflict")
+	errSecretVersionExhausted           = errors.New("client secret version exhausted")
+	errProvisioningRequiresAssignedOnly = errors.New("provisioning requires assigned-only policy")
 )
 
 type ClientResponse struct {
@@ -205,6 +207,9 @@ func UpdateClient(c *gin.Context) {
 		client.Description = strings.TrimSpace(req.Description)
 		client.RedirectURIs = strings.Join(redirectURIs, "\n")
 		policyChanged := client.AccessPolicy != accessPolicy
+		if provisioning.HasTarget(client.ID) && accessPolicy != models.AccessPolicyAssignedOnly {
+			return errProvisioningRequiresAssignedOnly
+		}
 		client.AccessPolicy = accessPolicy
 		if err := tx.Model(&client).Updates(map[string]interface{}{
 			"name":          client.Name,
@@ -241,6 +246,10 @@ func UpdateClient(c *gin.Context) {
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		respondError(c, http.StatusNotFound, "not_found", "Aplikasi tidak ditemukan.")
+		return
+	}
+	if errors.Is(err, errProvisioningRequiresAssignedOnly) {
+		respondError(c, http.StatusConflict, "provisioning_requires_assigned_only", "Aplikasi dengan provisioning harus menggunakan kebijakan pengguna ditugaskan.")
 		return
 	}
 	if err != nil {
@@ -363,6 +372,17 @@ func DeleteClient(c *gin.Context) {
 			return err
 		}
 		now := tx.NowFunc()
+		if provisioning.HasTarget(client.ID) {
+			var assignments []models.OAuthClientAssignment
+			if err := tx.Preload("User").Where("client_id = ? AND is_active = ?", client.ID, true).Find(&assignments).Error; err != nil {
+				return err
+			}
+			for _, assignment := range assignments {
+				if err := provisioning.Enqueue(tx, provisioning.EventUnassigned, client, assignment.User); err != nil {
+					return err
+				}
+			}
+		}
 		if err := tx.Model(&models.OAuthToken{}).
 			Where("client_id = ? AND revoked_at IS NULL", client.ID).
 			Update("revoked_at", now).Error; err != nil {
@@ -384,6 +404,7 @@ func DeleteClient(c *gin.Context) {
 		respondError(c, http.StatusInternalServerError, "server_error", "Gagal menghapus aplikasi.")
 		return
 	}
+	provisioning.Notify()
 	auditFromContext(c, AuditOAuthClientDelete, "oauth_client", client.ID, "Aplikasi SSO dihapus dan seluruh aksesnya dicabut: "+client.Name+".")
 	c.JSON(http.StatusOK, gin.H{"message": "Aplikasi, authorization code, dan seluruh tokennya telah dicabut."})
 }

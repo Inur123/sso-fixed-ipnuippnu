@@ -138,6 +138,26 @@ type OAuthClientAssignment struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
+// ProvisioningOutbox menjamin perubahan assignment tidak hilang ketika
+// aplikasi tujuan sedang tidak tersedia. Payload tidak menyimpan kredensial;
+// secret penandatangan selalu dibaca dari environment saat pengiriman.
+type ProvisioningOutbox struct {
+	ID            string     `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ClientID      string     `gorm:"type:uuid;not null;index:idx_provisioning_ready,priority:2" json:"client_id"`
+	EventType     string     `gorm:"type:varchar(80);not null" json:"event_type"`
+	Subject       string     `gorm:"type:uuid;not null;index" json:"subject"`
+	Payload       string     `gorm:"type:jsonb;not null" json:"-"`
+	Status        string     `gorm:"type:varchar(20);not null;default:'pending';index:idx_provisioning_ready,priority:1" json:"status"`
+	Attempts      int        `gorm:"not null;default:0" json:"attempts"`
+	NextAttemptAt time.Time  `gorm:"not null;index:idx_provisioning_ready,priority:3" json:"next_attempt_at"`
+	LockedUntil   *time.Time `gorm:"index" json:"-"`
+	LastError     string     `gorm:"type:varchar(500)" json:"last_error,omitempty"`
+	DeliveredAt   *time.Time `json:"delivered_at,omitempty"`
+	DedupeKey     *string    `gorm:"type:varchar(255);uniqueIndex" json:"-"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+}
+
 // OAuthAuthCode adalah authorization code sekali pakai. Nilai code disimpan sebagai hash.
 type OAuthAuthCode struct {
 	ID                  string    `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`

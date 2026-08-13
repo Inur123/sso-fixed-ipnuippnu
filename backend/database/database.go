@@ -5,7 +5,9 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -44,6 +46,14 @@ func Connect() {
 	}
 
 	DB = db
+	sqlDB, err := DB.DB()
+	if err != nil {
+		log.Fatal("Failed to configure database pool:", err)
+	}
+	sqlDB.SetMaxOpenConns(envInt("DB_MAX_OPEN_CONNS", 25, 5, 200))
+	sqlDB.SetMaxIdleConns(envInt("DB_MAX_IDLE_CONNS", 10, 2, 100))
+	sqlDB.SetConnMaxLifetime(time.Duration(envInt("DB_CONN_MAX_LIFETIME_MINUTES", 30, 1, 240)) * time.Minute)
+	sqlDB.SetConnMaxIdleTime(time.Duration(envInt("DB_CONN_MAX_IDLE_TIME_MINUTES", 5, 1, 60)) * time.Minute)
 	var currentDatabase string
 	if err := DB.Raw("SELECT current_database()").Scan(&currentDatabase).Error; err != nil {
 		log.Fatal("Failed to verify database:", err)
@@ -54,7 +64,7 @@ func Connect() {
 	log.Printf("connected to PostgreSQL database %q", currentDatabase)
 
 	// AutoMigrate hanya untuk pengembangan awal. Produksi sebaiknya memakai migrasi terversi.
-	err = DB.AutoMigrate(&models.User{}, &models.EmailVerificationOTP{}, &models.Session{}, &models.OAuthClient{}, &models.OAuthClientAssignment{}, &models.OAuthAuthCode{}, &models.OAuthToken{}, &models.AuditLog{})
+	err = DB.AutoMigrate(&models.User{}, &models.EmailVerificationOTP{}, &models.Session{}, &models.OAuthClient{}, &models.OAuthClientAssignment{}, &models.OAuthAuthCode{}, &models.OAuthToken{}, &models.AuditLog{}, &models.ProvisioningOutbox{})
 	if err != nil {
 		log.Fatal("Failed to migrate:", err)
 	}
@@ -71,6 +81,18 @@ func Connect() {
 	}
 
 	bootstrapSuperAdmin()
+}
+
+func envInt(key string, fallback, minimum, maximum int) int {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < minimum || value > maximum {
+		log.Fatalf("%s must be between %d and %d", key, minimum, maximum)
+	}
+	return value
 }
 
 func backfillOAuthClientOwnerAssignments() error {

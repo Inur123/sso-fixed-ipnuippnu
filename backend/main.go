@@ -1,16 +1,22 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"sso-backend/controllers"
 	"sso-backend/database"
+	"sso-backend/provisioning"
 	"sso-backend/utils"
 )
 
@@ -53,6 +59,28 @@ func MaxRequestBody(bytes int64) gin.HandlerFunc {
 	}
 }
 
+func trustedProxiesFromEnv() ([]string, error) {
+	raw := strings.TrimSpace(os.Getenv("BACKEND_TRUSTED_PROXIES"))
+	if raw == "" {
+		return nil, nil
+	}
+	items := strings.Split(raw, ",")
+	proxies := make([]string, 0, len(items))
+	for _, item := range items {
+		value := strings.TrimSpace(item)
+		if value == "" || value == "0.0.0.0/0" || value == "::/0" {
+			return nil, fmt.Errorf("BACKEND_TRUSTED_PROXIES contains an unsafe value")
+		}
+		if net.ParseIP(value) == nil {
+			if _, _, err := net.ParseCIDR(value); err != nil {
+				return nil, fmt.Errorf("BACKEND_TRUSTED_PROXIES contains invalid IP/CIDR %q", value)
+			}
+		}
+		proxies = append(proxies, value)
+	}
+	return proxies, nil
+}
+
 func main() {
 	err := godotenv.Load()
 	if err != nil {
@@ -68,6 +96,13 @@ func main() {
 		log.Fatal(err)
 	}
 	if err := utils.ValidateOIDCConfiguration(); err != nil {
+		log.Fatal(err)
+	}
+	if err := provisioning.Configure(); err != nil {
+		log.Fatal(err)
+	}
+	trustedProxies, err := trustedProxiesFromEnv()
+	if err != nil {
 		log.Fatal(err)
 	}
 	if strings.EqualFold(os.Getenv("APP_ENV"), "production") {
@@ -86,10 +121,16 @@ func main() {
 		}
 	}
 
+	appCtx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 	database.Connect()
+	if err := provisioning.ReconcileExistingAssignments(database.DB); err != nil {
+		log.Fatal(err)
+	}
+	provisioning.Start(appCtx, database.DB)
 
 	r := gin.Default()
-	if err := r.SetTrustedProxies(nil); err != nil {
+	if err := r.SetTrustedProxies(trustedProxies); err != nil {
 		log.Fatal(err)
 	}
 	r.Use(CORSMiddleware())
@@ -105,6 +146,20 @@ func main() {
 			"status":  "OK",
 			"message": "SSO " + appName + " berjalan dengan baik.",
 		})
+	})
+	r.GET("/ready", func(c *gin.Context) {
+		sqlDB, err := database.DB.DB()
+		if err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "NOT_READY"})
+			return
+		}
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 2*time.Second)
+		defer cancel()
+		if err := sqlDB.PingContext(ctx); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "NOT_READY"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "READY"})
 	})
 
 	// Auth Endpoints
@@ -153,6 +208,8 @@ func main() {
 	// RBAC administration.
 	r.GET("/api/admin/users", controllers.RequireSession, controllers.RequireRole("super_admin"), controllers.AdminGetUsers)
 	r.GET("/api/admin/audit-logs", controllers.RequireSession, controllers.RequireRole("super_admin"), controllers.AdminGetAuditLogs)
+	r.GET("/api/admin/provisioning", controllers.RequireSession, controllers.RequireRole("super_admin"), controllers.AdminProvisioningStatus)
+	r.POST("/api/admin/provisioning/:id/retry", controllers.RequireSession, controllers.RequireRole("super_admin"), controllers.AdminRetryProvisioningEvent)
 	r.PATCH("/api/admin/users/:id/role", controllers.RequireSession, controllers.RequireRole("super_admin"), controllers.AdminUpdateRole)
 	r.PATCH("/api/admin/users/:id/status", controllers.RequireSession, controllers.RequireRole("super_admin"), controllers.AdminUpdateStatus)
 	r.DELETE("/api/admin/users/:id", controllers.RequireSession, controllers.RequireRole("super_admin"), controllers.AdminDeleteUser)
@@ -167,7 +224,20 @@ func main() {
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatal(err)
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- server.ListenAndServe()
+	}()
+	select {
+	case err := <-serverErr:
+		if err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	case <-appCtx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			log.Printf("HTTP server forced shutdown: %v", err)
+		}
 	}
 }

@@ -85,6 +85,18 @@ Endpoint berikut memakai cookie sesi portal. Anggota mengelola client miliknya; 
 
 Endpoint reveal/regenerate hanya untuk pemilik client melalui dashboard, bukan mekanisme distribusi credential otomatis ke RP. `expected_version` mencegah dua rotasi paralel menghasilkan respons credential yang sudah usang. Kirim credential ke konfigurasi server RP melalui kanal rahasia.
 
+## Endpoint operasional provisioning
+
+Endpoint berikut hanya untuk sesi `super_admin`; aplikasi tujuan tidak
+memanggilnya:
+
+| Metode | Path | Fungsi |
+| --- | --- | --- |
+| `GET` | `/api/admin/provisioning` | Ringkasan status dan maksimal 100 event pending/processing/dead tanpa payload |
+| `POST` | `/api/admin/provisioning/:id/retry` | Menjadwalkan ulang event dead secara aman |
+
+Kontrak webhook aplikasi tujuan dijelaskan pada [provisioning realtime](../protocol/provisioning.md).
+
 ## Endpoint portal bukan API RP
 
 Path `/api/auth/*`, `/api/clients`, dan `/api/connections` adalah API portal IPNU IPPNU ID berbasis cookie sesi. Aplikasi RP tidak boleh bergantung pada cookie portal tersebut. Integrasi RP hanya memakai endpoint protokol publik di tabel awal halaman ini.

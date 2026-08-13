@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 	"sso-backend/database"
 	"sso-backend/models"
+	"sso-backend/provisioning"
 	"sso-backend/utils"
 )
 
@@ -69,11 +70,20 @@ func UpdateProfile(c *gin.Context) {
 		"name": strings.TrimSpace(req.Name), "phone": strings.TrimSpace(req.Phone),
 		"bio": strings.TrimSpace(req.Bio), "gender": req.Gender, "avatar": strings.TrimSpace(req.Avatar),
 	}
-	if err := database.DB.Model(user).Updates(updates).Error; err != nil {
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(user).Updates(updates).Error; err != nil {
+			return err
+		}
+		if err := tx.First(user, "id = ?", user.ID).Error; err != nil {
+			return err
+		}
+		return provisioning.EnqueueForUser(tx, provisioning.EventUpdated, *user)
+	})
+	if err != nil {
 		respondError(c, http.StatusInternalServerError, "server_error", "Gagal memperbarui profil.")
 		return
 	}
-	database.DB.First(user, "id = ?", user.ID)
+	provisioning.Notify()
 	auditFromContext(c, AuditUserProfileUpdate, "user", user.ID, "Profil akun diperbarui.")
 	c.JSON(http.StatusOK, gin.H{"message": "Profil berhasil diperbarui.", "user": user})
 }

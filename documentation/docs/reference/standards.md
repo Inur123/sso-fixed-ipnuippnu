@@ -21,7 +21,7 @@ Dokumentasi integrasi ini mengikuti sumber primer berikut.
 - [JSON Web Key — RFC 7517](https://www.rfc-editor.org/rfc/rfc7517.html)
 - [SCIM Core Schema — RFC 7643](https://www.rfc-editor.org/rfc/rfc7643.html)
 
-OAuth dan OpenID Connect tidak menetapkan struktur organisasi atau nama role bisnis. Assignment pengguna/grup dan kosakata role adalah kebijakan layanan, sedangkan error protokol, validasi token, serta claim standar mengikuti spesifikasi di atas. SCIM relevan bila provisioning pengguna dan grup kelak dilakukan lintas sistem; SCIM tidak menggantikan pemeriksaan authorization di aplikasi.
+OAuth dan OpenID Connect tidak menetapkan struktur organisasi atau nama role bisnis. Assignment pengguna dan kosakata role adalah kebijakan layanan, sedangkan error protokol, validasi token, serta claim standar mengikuti spesifikasi di atas. Provisioning event yang tersedia saat ini adalah webhook internal dengan envelope CloudEvents dan HMAC; fitur tersebut **bukan SCIM**. SCIM relevan bila kelak dibutuhkan provisioning lintas vendor dan tidak menggantikan pemeriksaan authorization di aplikasi.
 
 ## Contoh framework
 

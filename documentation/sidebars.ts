@@ -15,6 +15,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'protocol/authorization-code-pkce',
         'protocol/application-access',
+        'protocol/provisioning',
         'security/validation',
         'security/tokens-revocation',
       ],
