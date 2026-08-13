@@ -34,8 +34,8 @@ func Connect() {
 	if sslMode == "" {
 		log.Fatal("required environment variable DB_SSLMODE is not set")
 	}
-	if strings.EqualFold(os.Getenv("APP_ENV"), "production") && sslMode != "verify-ca" && sslMode != "verify-full" {
-		log.Fatal("DB_SSLMODE must be verify-ca or verify-full in production")
+	if strings.EqualFold(os.Getenv("APP_ENV"), "production") && !validProductionSSLMode(os.Getenv("DB_HOST"), sslMode) {
+		log.Fatal("DB_SSLMODE must be verify-ca or verify-full in production; disable is only allowed for a loopback database")
 	}
 	query.Set("sslmode", sslMode)
 	databaseURL.RawQuery = query.Encode()
@@ -81,6 +81,22 @@ func Connect() {
 	}
 
 	bootstrapSuperAdmin()
+}
+
+func validProductionSSLMode(host, sslMode string) bool {
+	mode := strings.ToLower(strings.TrimSpace(sslMode))
+	if mode == "verify-ca" || mode == "verify-full" {
+		return true
+	}
+	if mode != "disable" {
+		return false
+	}
+
+	// PostgreSQL pada host yang sama tidak melewati jaringan. Mengizinkan
+	// koneksi tanpa TLS hanya untuk alamat loopback menghindari sertifikat
+	// self-signed lokal tanpa melonggarkan koneksi database eksternal.
+	host = strings.TrimSpace(strings.ToLower(host))
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
 }
 
 func envInt(key string, fallback, minimum, maximum int) int {
