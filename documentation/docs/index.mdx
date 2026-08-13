@@ -1,0 +1,83 @@
+---
+id: index
+slug: /
+title: Gambaran umum
+sidebar_label: Gambaran umum
+hide_title: true
+hide_table_of_contents: true
+description: Dokumentasi resmi integrasi aplikasi dengan SSO IPNU IPPNU ID.
+---
+
+import Link from '@docusaurus/Link';
+
+<section className="docs-hero">
+  <span className="docs-eyebrow">OAuth 2.0 • OpenID Connect • PKCE S256</span>
+  <h1>Satu identitas, integrasi yang dapat diaudit.</h1>
+  <p>
+    Panduan implementasi untuk menghubungkan aplikasi organisasi ke IPNU IPPNU ID
+    dengan Authorization Code, PKCE, ID token RS256, kendali akses per aplikasi,
+    dan refresh token rotation.
+  </p>
+  <div className="docs-actions">
+    <Link className="button button--primary button--lg" to="/getting-started/quickstart">Mulai integrasi</Link>
+    <Link className="button button--outline button--lg" to="/reference/endpoints">Lihat endpoint</Link>
+  </div>
+</section>
+
+## Arsitektur ringkas
+
+IPNU IPPNU ID bertindak sebagai **Authorization Server** dan **OpenID Provider**. Aplikasi yang terhubung adalah **Relying Party (RP)** sekaligus OAuth client. Alur yang didukung adalah Authorization Code dengan PKCE S256 untuk confidential client.
+
+```text
+Browser pengguna
+  │
+  ├─ 1. diarahkan ke /oauth/authorize + state + nonce + PKCE challenge
+  │
+IPNU IPPNU ID
+  │
+  ├─ 2. autentikasi, verifikasi akun, pemeriksaan assignment, dan persetujuan
+  └─ 3. redirect ke callback RP membawa code + state + iss
+       │
+Server RP
+  ├─ 4. tukar code + verifier + client secret di /oauth/token
+  ├─ 5. validasi ID token RS256 melalui discovery/JWKS
+  └─ 6. buat sesi lokal aplikasi
+```
+
+:::important Batas kepercayaan
+Cookie sesi portal IPNU IPPNU ID bukan sesi aplikasi Anda. Setelah callback berhasil, RP wajib membuat dan mengelola sesi lokalnya sendiri. Access token juga bukan ID token: perlakukan access token sebagai opaque dan gunakan endpoint UserInfo.
+:::
+
+<div className="docs-cards">
+  <Link className="docs-card" to="/protocol/authorization-code-pkce">
+    <strong>Authorization Code + PKCE</strong>
+    <span>Urutan request, parameter wajib, dan pertukaran code yang aman.</span>
+  </Link>
+  <Link className="docs-card" to="/security/validation">
+    <strong>Validasi callback dan token</strong>
+    <span>Pemeriksaan state, nonce, iss, aud, tanda tangan, waktu, dan sub.</span>
+  </Link>
+  <Link className="docs-card" to="/protocol/application-access">
+    <strong>Akses per aplikasi</strong>
+    <span>Assignment pengguna sebagai gerbang masuk; otorisasi bisnis tetap di aplikasi.</span>
+  </Link>
+  <Link className="docs-card" to="/security/tokens-revocation">
+    <strong>Siklus hidup grant</strong>
+    <span>Rotation, reuse detection, pencabutan grant, dan sesi lokal RP.</span>
+  </Link>
+</div>
+
+## Kemampuan yang tersedia
+
+- Discovery OAuth 2.0 dan OpenID Connect.
+- Authorization Code sekali pakai dengan masa berlaku 5 menit.
+- PKCE wajib dengan `code_challenge_method=S256`.
+- ID token bertanda tangan `RS256` dengan `kid` dan JWKS.
+- Access token 1 jam serta refresh token 30 hari dengan rotation dan reuse detection.
+- Scope identitas `openid`, `profile`, dan `email`.
+- Kebijakan akses per client dengan assignment pengguna; role bisnis tetap milik aplikasi tujuan.
+- Pencabutan satu grant aplikasi dari portal pengguna atau revocation endpoint.
+
+## Model client saat ini
+
+Client menggunakan autentikasi `client_secret_post`, sehingga secret hanya boleh berada pada server tepercaya. Aplikasi browser murni, mobile public client, atau SPA tanpa backend **tidak boleh** menanam client secret. Gunakan pola backend-for-frontend (BFF) atau backend aplikasi.

@@ -91,9 +91,9 @@ Endpoint discovery dan protokol:
 
 Request authorization wajib memakai `response_type=code`, `state`, exact `redirect_uri`, dan PKCE `S256`. Gunakan `nonce` saat meminta scope `openid`. Sesi aplikasi di portal merepresentasikan grant aplikasi yang masih aktif, bukan daftar browser atau perangkat. Tombol **Cabut akses** menghentikan token/grant di Identity Provider; sesi lokal yang sudah dibuat aplikasi klien baru berakhir bila aplikasi tersebut juga mengimplementasikan logout sendiri atau OIDC front/back-channel logout.
 
-Setiap aplikasi dapat memakai policy `assigned_only` (default aman) atau `all_active_users`. Pada policy terbatas, pemilik aplikasi menugaskan pengguna serta role/entitlement khusus aplikasi dari dashboard. Pemeriksaan dilakukan saat authorization, pertukaran code/refresh, dan UserInfo; perubahan assignment langsung mencabut grant lama.
+Setiap aplikasi dapat memakai policy `assigned_only` (default aman) atau `all_active_users`. Pada policy terbatas, pemilik aplikasi menambahkan pengguna berdasarkan UUID atau email secara persis. Pemeriksaan dilakukan saat authorization, pertukaran code/refresh, dan UserInfo; pencabutan assignment langsung mencabut grant lama.
 
-Role `super_admin` adalah otoritas internal platform dan tidak dibagikan ke relying party. Scope opsional `roles` dan `entitlements` hanya mengirim nilai khusus pasangan pengguna–aplikasi; keduanya tidak dimasukkan ke ID token.
+Role `super_admin` dan `anggota` adalah otoritas internal platform dan tidak dibagikan ke relying party. Role serta permission bisnis dikelola sendiri oleh aplikasi tujuan dengan identitas stabil `(iss, sub)`.
 
 Panduan integrasi lengkap tersedia sebagai situs Docusaurus terpisah di folder [`documentation`](documentation/README.md). Untuk menjalankannya secara lokal:
 

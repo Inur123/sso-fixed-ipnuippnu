@@ -1,0 +1,16 @@
+# Ignore semua file .env di level mana saja (root, backend, frontend, dll)
+.env
+.env.*
+!.env.example
+
+# Ignore system files & dependencies
+.DS_Store
+node_modules/
+.next/
+dist/
+bin/
+.env
+.env.*
+!.env.example
+.DS_Store
+node_modules/
