@@ -1,12 +1,14 @@
 package controllers
 
 import (
+	"errors"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 	"sso-backend/database"
 	"sso-backend/models"
 )
@@ -24,9 +26,9 @@ type ApplicationConnection struct {
 	ExpiresAt   time.Time `json:"expires_at"`
 }
 
-// GetApplicationConnections menampilkan aplikasi yang saat ini masih memiliki
-// refresh grant aktif. Seluruh rotasi token dalam family yang sama ditampilkan
-// sebagai satu koneksi aplikasi.
+// GetApplicationConnections menampilkan satu koneksi per aplikasi yang saat ini
+// masih memiliki grant aktif. Login berulang atau beberapa token family tidak
+// boleh membuat baris aplikasi yang sama muncul berkali-kali.
 func GetApplicationConnections(c *gin.Context) {
 	var tokens []models.OAuthToken
 	if err := database.DB.
@@ -58,25 +60,26 @@ func GetApplicationConnections(c *gin.Context) {
 	}
 
 	now := time.Now().UTC()
-	type familyState struct {
+	type clientState struct {
 		connection ApplicationConnection
 		active     bool
+		scopes     map[string]struct{}
 	}
-	families := make(map[string]*familyState)
+	applications := make(map[string]*clientState)
 	for _, token := range tokens {
 		client, exists := clientByID[token.ClientID]
 		if !exists {
 			continue
 		}
-		state, exists := families[token.FamilyID]
+		state, exists := applications[token.ClientID]
 		if !exists {
-			state = &familyState{connection: ApplicationConnection{
-				ID: token.FamilyID, ClientID: client.ID, Name: client.Name,
+			state = &clientState{connection: ApplicationConnection{
+				ID: client.ID, ClientID: client.ID, Name: client.Name,
 				Description: client.Description, Scopes: strings.Fields(token.Scope),
 				ConnectedAt: token.CreatedAt, LastUsedAt: token.CreatedAt,
 				ExpiresAt: token.RefreshExpiresAt,
-			}}
-			families[token.FamilyID] = state
+			}, scopes: make(map[string]struct{})}
+			applications[token.ClientID] = state
 		}
 		if token.CreatedAt.Before(state.connection.ConnectedAt) {
 			state.connection.ConnectedAt = token.CreatedAt
@@ -93,13 +96,20 @@ func GetApplicationConnections(c *gin.Context) {
 		}
 		if token.RevokedAt == nil && (token.ExpiresAt.After(now) || token.RefreshExpiresAt.After(now)) {
 			state.active = true
-			state.connection.Scopes = strings.Fields(token.Scope)
+			for _, scope := range strings.Fields(token.Scope) {
+				state.scopes[scope] = struct{}{}
+			}
 		}
 	}
 
-	connections := make([]ApplicationConnection, 0, len(families))
-	for _, state := range families {
+	connections := make([]ApplicationConnection, 0, len(applications))
+	for _, state := range applications {
 		if state.active {
+			state.connection.Scopes = state.connection.Scopes[:0]
+			for scope := range state.scopes {
+				state.connection.Scopes = append(state.connection.Scopes, scope)
+			}
+			sort.Strings(state.connection.Scopes)
 			connections = append(connections, state.connection)
 		}
 	}
@@ -112,15 +122,20 @@ func GetApplicationConnections(c *gin.Context) {
 
 func RevokeApplicationConnection(c *gin.Context) {
 	now := time.Now().UTC()
-	result := database.DB.Model(&models.OAuthToken{}).
-		Where("family_id = ? AND user_id = ? AND revoked_at IS NULL", c.Param("id"), c.GetString("userID")).
-		Update("revoked_at", now)
-	if result.Error != nil {
-		respondError(c, http.StatusInternalServerError, "server_error", "Gagal mencabut akses aplikasi.")
+	userID := c.GetString("userID")
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		var token models.OAuthToken
+		if err := tx.Where("client_id = ? AND user_id = ? AND revoked_at IS NULL", c.Param("id"), userID).First(&token).Error; err != nil {
+			return err
+		}
+		return revokeClientUserGrant(tx, c.Param("id"), userID, now)
+	})
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		respondError(c, http.StatusNotFound, "not_found", "Koneksi aplikasi tidak ditemukan atau sudah dicabut.")
 		return
 	}
-	if result.RowsAffected == 0 {
-		respondError(c, http.StatusNotFound, "not_found", "Koneksi aplikasi tidak ditemukan atau sudah dicabut.")
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "server_error", "Gagal mencabut akses aplikasi.")
 		return
 	}
 	auditFromContext(c, AuditOAuthConnectionRevoke, "oauth_connection", c.Param("id"), "Koneksi aplikasi SSO dicabut oleh pemilik akun.")

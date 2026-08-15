@@ -178,6 +178,7 @@ func main() {
 	r.GET("/.well-known/openid-configuration", controllers.OpenIDConfiguration)
 	r.GET("/oauth/jwks", controllers.OIDCJWKS)
 	r.GET("/api/oauth/client-info", controllers.GetOAuthClientInfo)
+	r.GET("/api/oauth/authorization-context", controllers.RequireSession, controllers.GetOAuthAuthorizationContext)
 	r.GET("/oauth/authorize", controllers.OAuthAuthorizationEndpoint)
 	r.POST("/oauth/authorize", controllers.RequireSession, controllers.OAuthAuthorize)
 	r.POST("/oauth/token", controllers.RateLimit(30, time.Minute), controllers.OAuthToken)

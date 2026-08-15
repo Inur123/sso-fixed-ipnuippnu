@@ -138,6 +138,21 @@ type OAuthClientAssignment struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 }
 
+// OAuthConsent menyimpan persetujuan scope pengguna untuk satu aplikasi.
+// Admission (assignment) tetap diperiksa terpisah pada setiap authorization.
+type OAuthConsent struct {
+	ID        string      `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	ClientID  string      `gorm:"type:uuid;not null;uniqueIndex:idx_oauth_consent_client_user;index" json:"client_id"`
+	Client    OAuthClient `gorm:"foreignKey:ClientID;constraint:OnDelete:CASCADE" json:"-"`
+	UserID    string      `gorm:"type:uuid;not null;uniqueIndex:idx_oauth_consent_client_user;index" json:"user_id"`
+	User      User        `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
+	Scope     string      `gorm:"not null" json:"scope"`
+	GrantedAt time.Time   `gorm:"not null" json:"granted_at"`
+	RevokedAt *time.Time  `gorm:"index" json:"revoked_at,omitempty"`
+	CreatedAt time.Time   `json:"created_at"`
+	UpdatedAt time.Time   `json:"updated_at"`
+}
+
 // ProvisioningOutbox menjamin perubahan assignment tidak hilang ketika
 // aplikasi tujuan sedang tidak tersedia. Payload tidak menyimpan kredensial;
 // secret penandatangan selalu dibaca dari environment saat pengiriman.

@@ -159,7 +159,7 @@ export default function SesiPage() {
             <div className="space-y-1">
               <CardTitle>Aplikasi terhubung</CardTitle>
               <CardDescription>
-                Setiap koneksi dibuat saat Anda masuk melalui SSO dan menyetujui akses aplikasi.
+                Setiap aplikasi ditampilkan satu kali meskipun Anda masuk melalui SSO dari beberapa sesi.
               </CardDescription>
             </div>
           </div>

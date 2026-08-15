@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -64,7 +65,7 @@ func Connect() {
 	log.Printf("connected to PostgreSQL database %q", currentDatabase)
 
 	// AutoMigrate hanya untuk pengembangan awal. Produksi sebaiknya memakai migrasi terversi.
-	err = DB.AutoMigrate(&models.User{}, &models.EmailVerificationOTP{}, &models.Session{}, &models.OAuthClient{}, &models.OAuthClientAssignment{}, &models.OAuthAuthCode{}, &models.OAuthToken{}, &models.AuditLog{}, &models.ProvisioningOutbox{})
+	err = DB.AutoMigrate(&models.User{}, &models.EmailVerificationOTP{}, &models.Session{}, &models.OAuthClient{}, &models.OAuthClientAssignment{}, &models.OAuthConsent{}, &models.OAuthAuthCode{}, &models.OAuthToken{}, &models.AuditLog{}, &models.ProvisioningOutbox{})
 	if err != nil {
 		log.Fatal("Failed to migrate:", err)
 	}
@@ -73,6 +74,14 @@ func Connect() {
 	// bergantung pada tebakan nama tabel untuk initialism OAuth.
 	if err := backfillOAuthClientOwnerAssignments(); err != nil {
 		log.Fatal("Failed to backfill OAuth client owner assignments:", err)
+	}
+	// Grant aktif yang dibuat sebelum tabel consent tersedia sudah pernah
+	// melewati layar persetujuan. Rekam persetujuan itu satu kali agar upgrade
+	// tidak meminta pengguna menyetujui scope yang sama pada setiap login.
+	// Consent yang sudah ada (termasuk yang dicabut) tidak pernah diaktifkan
+	// kembali oleh backfill ini.
+	if err := backfillOAuthConsentsFromActiveGrants(); err != nil {
+		log.Fatal("Failed to backfill OAuth consents:", err)
 	}
 	if err := DB.Model(&models.OAuthClient{}).
 		Where("deleted_at IS NULL").
@@ -136,6 +145,82 @@ func backfillOAuthClientOwnerAssignments() error {
 		}
 		return nil
 	})
+}
+
+func backfillOAuthConsentsFromActiveGrants() error {
+	now := time.Now().UTC()
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var tokens []models.OAuthToken
+		if err := tx.
+			Where("revoked_at IS NULL AND (expires_at > ? OR refresh_expires_at > ?)", now, now).
+			Order("created_at ASC").
+			Find(&tokens).Error; err != nil {
+			return err
+		}
+
+		for _, candidate := range oauthConsentBackfillCandidates(tokens) {
+			var existing int64
+			if err := tx.Model(&models.OAuthConsent{}).
+				Where("client_id = ? AND user_id = ?", candidate.ClientID, candidate.UserID).
+				Count(&existing).Error; err != nil {
+				return err
+			}
+			if existing > 0 {
+				continue
+			}
+			if err := tx.Create(&candidate).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func oauthConsentBackfillCandidates(tokens []models.OAuthToken) []models.OAuthConsent {
+	type grant struct {
+		clientID  string
+		userID    string
+		scopes    map[string]struct{}
+		grantedAt time.Time
+	}
+	grants := make(map[string]*grant)
+	for _, token := range tokens {
+		key := token.ClientID + ":" + token.UserID
+		item, exists := grants[key]
+		if !exists {
+			item = &grant{
+				clientID: token.ClientID, userID: token.UserID,
+				scopes: make(map[string]struct{}), grantedAt: token.CreatedAt,
+			}
+			grants[key] = item
+		}
+		if token.CreatedAt.Before(item.grantedAt) {
+			item.grantedAt = token.CreatedAt
+		}
+		for _, scope := range strings.Fields(token.Scope) {
+			item.scopes[scope] = struct{}{}
+		}
+	}
+
+	candidates := make([]models.OAuthConsent, 0, len(grants))
+	for _, item := range grants {
+		scopes := make([]string, 0, len(item.scopes))
+		for scope := range item.scopes {
+			scopes = append(scopes, scope)
+		}
+		sort.Strings(scopes)
+		candidates = append(candidates, models.OAuthConsent{
+			ClientID: item.clientID, UserID: item.userID,
+			Scope: strings.Join(scopes, " "), GrantedAt: item.grantedAt,
+		})
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].ClientID == candidates[j].ClientID {
+			return candidates[i].UserID < candidates[j].UserID
+		}
+		return candidates[i].ClientID < candidates[j].ClientID
+	})
+	return candidates
 }
 
 // bootstrapSuperAdmin hanya mempromosikan akun terverifikasi yang emailnya

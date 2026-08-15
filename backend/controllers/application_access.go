@@ -51,5 +51,8 @@ func revokeClientUserGrant(tx *gorm.DB, clientID, userID string, now time.Time) 
 		Update("revoked_at", now).Error; err != nil {
 		return err
 	}
-	return tx.Where("client_id = ? AND user_id = ?", clientID, userID).Delete(&models.OAuthAuthCode{}).Error
+	if err := tx.Where("client_id = ? AND user_id = ?", clientID, userID).Delete(&models.OAuthAuthCode{}).Error; err != nil {
+		return err
+	}
+	return revokeOAuthConsent(tx, clientID, userID, now)
 }

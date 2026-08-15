@@ -17,6 +17,7 @@ Gunakan origin issuer dari konfigurasi lingkungan. Tabel menggunakan `http://loc
 | `POST` | `/oauth/revoke` | Server RP | Mencabut grant berdasarkan access/refresh token |
 | `GET` | `/v1/user/me` | Server RP | UserInfo sesuai scope access token |
 | `GET` | `/api/oauth/client-info` | Portal consent | Nama/deskripsi client berdasarkan `client_id` + `redirect_uri` |
+| `GET` | `/api/oauth/authorization-context` | Portal authorization | Client, admission, pemilih akun, dan status consent pengguna aktif |
 
 ## Authorization endpoint
 

@@ -391,6 +391,9 @@ func DeleteClient(c *gin.Context) {
 		if err := tx.Where("client_id = ?", client.ID).Delete(&models.OAuthAuthCode{}).Error; err != nil {
 			return err
 		}
+		if err := tx.Where("client_id = ?", client.ID).Delete(&models.OAuthConsent{}).Error; err != nil {
+			return err
+		}
 		if err := tx.Where("client_id = ?", client.ID).Delete(&models.OAuthClientAssignment{}).Error; err != nil {
 			return err
 		}

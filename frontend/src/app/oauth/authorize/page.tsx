@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, AppWindow, Check, ShieldCheck, X } from "lucide-react";
+import { AlertCircle, AppWindow, Check, CircleUserRoundIcon, ShieldCheck, X } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import { Brand } from "@/components/brand";
@@ -28,6 +28,8 @@ interface ClientInfo {
   name: string;
   description: string;
   allowed_scopes: string[];
+  consent_required: boolean;
+  select_account: boolean;
 }
 
 function AuthorizeContent() {
@@ -49,12 +51,13 @@ function AuthorizeContent() {
       code_challenge: searchParams.get("code_challenge") ?? "",
       code_challenge_method: searchParams.get("code_challenge_method") ?? "",
       nonce: searchParams.get("nonce") ?? "",
+      prompt: searchParams.get("prompt") ?? "",
     }),
     [searchParams],
   );
   const complete =
     Object.entries(request).every(
-      ([key, value]) => key === "nonce" || Boolean(value),
+      ([key, value]) => key === "nonce" || key === "prompt" || Boolean(value),
     ) &&
     request.response_type === "code" &&
     request.code_challenge_method === "S256" &&
@@ -80,8 +83,10 @@ function AuthorizeContent() {
     const query = new URLSearchParams({
       client_id: request.client_id,
       redirect_uri: request.redirect_uri,
+      scope: request.scope,
+      prompt: request.prompt,
     });
-    apiFetch<ClientInfo>(`/api/oauth/client-info?${query.toString()}`)
+    apiFetch<ClientInfo>(`/api/oauth/authorization-context?${query.toString()}`)
       .then((data) => {
         if (active) setClient(data);
       })
@@ -99,6 +104,8 @@ function AuthorizeContent() {
     complete,
     request.client_id,
     request.redirect_uri,
+    request.scope,
+    request.prompt,
     router,
     user,
   ]);
@@ -133,6 +140,19 @@ function AuthorizeContent() {
     window.location.assign(target.toString());
   }
 
+  async function useAnotherAccount() {
+    setApproving(true);
+    setError("");
+    try {
+      await apiFetch<{ message: string }>("/api/auth/logout", { method: "POST" });
+      const callback = `${window.location.pathname}${window.location.search}`;
+      router.replace(`/login?callbackUrl=${encodeURIComponent(callback)}`);
+    } catch (logoutError) {
+      setError(getErrorMessage(logoutError));
+      setApproving(false);
+    }
+  }
+
   if (authLoading || loading || !user)
     return (
       <main className="flex min-h-svh items-center justify-center bg-muted/30 p-4">
@@ -160,9 +180,13 @@ function AuthorizeContent() {
         <CardHeader className="space-y-5">
           <Brand />
           <div>
-            <CardTitle className="text-xl">Izinkan akses aplikasi</CardTitle>
+            <CardTitle className="text-xl">
+              {client && !client.consent_required ? "Pilih akun" : "Izinkan akses aplikasi"}
+            </CardTitle>
             <CardDescription className="mt-2">
-              Tinjau identitas aplikasi dan scope sebelum melanjutkan.
+              {client && !client.consent_required
+                ? `Pilih akun untuk melanjutkan ke ${client.name}.`
+                : "Tinjau identitas aplikasi dan scope sebelum melanjutkan."}
             </CardDescription>
           </div>
         </CardHeader>
@@ -186,7 +210,7 @@ function AuthorizeContent() {
                   </p>
                 </div>
               </div>
-              <div>
+              {client.consent_required && <div>
                 <p className="mb-3 text-sm font-medium">Aplikasi meminta:</p>
                 <div className="space-y-2">
                   {request.scope
@@ -211,7 +235,7 @@ function AuthorizeContent() {
                       </div>
                     ))}
                 </div>
-              </div>
+              </div>}
             </>
           )}
           <Separator />
@@ -227,17 +251,24 @@ function AuthorizeContent() {
           </div>
         </CardContent>
         <CardFooter className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            onClick={cancel}
-            disabled={!client || approving}
-          >
-            <X />
-            Tolak
-          </Button>
+          {!client || !client.consent_required ? (
+            <Button variant="outline" onClick={useAnotherAccount} disabled={approving}>
+              <CircleUserRoundIcon />
+              Gunakan akun lain
+            </Button>
+          ) : (
+            <Button variant="outline" onClick={cancel} disabled={approving}>
+              <X />
+              Tolak
+            </Button>
+          )}
           <Button onClick={approve} disabled={!client || approving}>
             {approving ? <Spinner /> : <Check />}
-            {approving ? "Mengizinkan..." : "Izinkan"}
+            {approving
+              ? "Memproses..."
+              : client && !client.consent_required
+                ? "Lanjut"
+                : "Izinkan"}
           </Button>
         </CardFooter>
       </Card>

@@ -52,6 +52,15 @@ Semua parameter berikut wajib: `response_type`, `client_id`, `redirect_uri`, `sc
 
 Authorization server memvalidasi client, exact redirect URI, scope, PKCE, akun aktif, email terverifikasi, serta assignment aplikasi. Browser kemudian melihat layar login/consent portal.
 
+Persetujuan scope disimpan per pasangan pengguna dan aplikasi. Request berikutnya
+tidak meminta persetujuan yang sama lagi selama scope tidak bertambah dan grant
+belum dicabut. Gunakan `prompt=select_account` bila RP ingin selalu menampilkan
+pemilih akun SSO; pengguna dapat melanjutkan dengan akun yang sedang aktif atau
+memilih **Gunakan akun lain**. Logout lokal RP maupun berakhirnya sesi login SSO
+tidak menghapus persetujuan scope. Persetujuan diminta lagi hanya ketika pengguna
+menekan **Cabut akses**, assignment dicabut lalu diberikan kembali, scope bertambah,
+atau RP secara eksplisit mengirim `prompt=consent`.
+
 ## 2. Authorization response
 
 Sukses:

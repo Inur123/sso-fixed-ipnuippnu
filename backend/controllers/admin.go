@@ -229,6 +229,9 @@ func AdminDeleteUser(c *gin.Context) {
 			if err := tx.Unscoped().Where("client_id IN ?", ownedClientIDs).Delete(&models.OAuthAuthCode{}).Error; err != nil {
 				return err
 			}
+			if err := tx.Unscoped().Where("client_id IN ?", ownedClientIDs).Delete(&models.OAuthConsent{}).Error; err != nil {
+				return err
+			}
 			if err := tx.Unscoped().Where("client_id IN ?", ownedClientIDs).Delete(&models.OAuthToken{}).Error; err != nil {
 				return err
 			}
@@ -237,6 +240,9 @@ func AdminDeleteUser(c *gin.Context) {
 			return err
 		}
 		if err := tx.Unscoped().Where("user_id = ?", user.ID).Delete(&models.OAuthAuthCode{}).Error; err != nil {
+			return err
+		}
+		if err := tx.Unscoped().Where("user_id = ?", user.ID).Delete(&models.OAuthConsent{}).Error; err != nil {
 			return err
 		}
 		if err := tx.Unscoped().Where("user_id = ?", user.ID).Delete(&models.OAuthToken{}).Error; err != nil {

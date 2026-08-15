@@ -41,6 +41,7 @@ func AuthorizationServerMetadata(c *gin.Context) {
 		"token_endpoint_auth_methods_supported":          []string{"client_secret_post"},
 		"code_challenge_methods_supported":               []string{"S256"},
 		"scopes_supported":                               []string{"openid", "profile", "email"},
+		"prompt_values_supported":                        []string{promptConsent, promptSelectAccount},
 	})
 }
 
@@ -62,6 +63,7 @@ func OpenIDConfiguration(c *gin.Context) {
 		"code_challenge_methods_supported":               []string{"S256"},
 		"scopes_supported":                               []string{"openid", "profile", "email"},
 		"claims_supported":                               []string{"sub", "iss", "aud", "exp", "iat", "auth_time", "nonce", "name", "email", "email_verified"},
+		"prompt_values_supported":                        []string{promptConsent, promptSelectAccount},
 	})
 }
 
@@ -106,6 +108,7 @@ func OAuthAuthorizationEndpoint(c *gin.Context) {
 	challenge := c.Query("code_challenge")
 	method := c.Query("code_challenge_method")
 	nonce := c.Query("nonce")
+	prompt := c.Query("prompt")
 
 	var client models.OAuthClient
 	redirectIsTrusted := database.DB.First(&client, "id = ? AND status = ?", clientID, models.ClientStatusActive).Error == nil && exactRedirectMatch(client, redirectURI)
@@ -113,8 +116,9 @@ func OAuthAuthorizationEndpoint(c *gin.Context) {
 		respondError(c, http.StatusBadRequest, "invalid_request", "Client atau redirect URI tidak valid.")
 		return
 	}
+	_, promptErr := parseOAuthPrompt(prompt)
 	openidWithoutNonce := utils.ScopeAllowed("openid", scope) && nonce == ""
-	if responseType != "code" || state == "" || method != "S256" || len(challenge) != 43 || !utils.ScopeAllowed(scope, client.AllowedScopes) || openidWithoutNonce {
+	if responseType != "code" || state == "" || method != "S256" || len(challenge) != 43 || !utils.ScopeAllowed(scope, client.AllowedScopes) || openidWithoutNonce || promptErr != nil {
 		location, _ := oauthRedirectURL(redirectURI, map[string]string{"error": "invalid_request", "error_description": "Gunakan Authorization Code, state, scope yang diizinkan, dan PKCE S256.", "state": state, "iss": utils.IssuerURL()})
 		c.Redirect(http.StatusFound, location)
 		return
@@ -138,6 +142,7 @@ type AuthorizeRequest struct {
 	CodeChallenge       string `json:"code_challenge" binding:"required"`
 	CodeChallengeMethod string `json:"code_challenge_method" binding:"required"`
 	Nonce               string `json:"nonce"`
+	Prompt              string `json:"prompt"`
 }
 
 func OAuthAuthorize(c *gin.Context) {
@@ -148,6 +153,11 @@ func OAuthAuthorize(c *gin.Context) {
 	}
 	if req.ResponseType != "code" || req.CodeChallengeMethod != "S256" || len(req.CodeChallenge) != 43 {
 		respondError(c, http.StatusBadRequest, "invalid_request", "Gunakan response_type=code dan PKCE S256.")
+		return
+	}
+	prompts, err := parseOAuthPrompt(req.Prompt)
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid_request", "Nilai prompt OAuth tidak didukung.")
 		return
 	}
 
@@ -174,6 +184,17 @@ func OAuthAuthorize(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetString("userID")
+	required, err := consentRequired(database.DB, client.ID, userID, scope, prompts[promptConsent])
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "server_error", "Status persetujuan aplikasi belum dapat diperiksa.")
+		return
+	}
+	if prompts[promptNone] && required {
+		redirectOAuthError(c, req.RedirectURI, req.State, "consent_required", "Persetujuan pengguna diperlukan.")
+		return
+	}
+
 	rawCode, err := utils.RandomToken(32)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "server_error", "Gagal membuat authorization code.")
@@ -182,7 +203,7 @@ func OAuthAuthorize(c *gin.Context) {
 	authCode := models.OAuthAuthCode{
 		CodeHash:            utils.HashToken(rawCode),
 		ClientID:            client.ID,
-		UserID:              c.GetString("userID"),
+		UserID:              userID,
 		RedirectURI:         req.RedirectURI,
 		Scope:               scope,
 		CodeChallenge:       req.CodeChallenge,
@@ -192,12 +213,23 @@ func OAuthAuthorize(c *gin.Context) {
 		AuthTime:            currentSessionCreatedAt(c),
 		ExpiresAt:           time.Now().UTC().Add(authorizationCodeLifetime),
 	}
-	database.DB.Where("expires_at <= ?", time.Now().UTC()).Delete(&models.OAuthAuthCode{})
-	if err := database.DB.Create(&authCode).Error; err != nil {
+	now := time.Now().UTC()
+	database.DB.Where("expires_at <= ?", now).Delete(&models.OAuthAuthCode{})
+	if err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&authCode).Error; err != nil {
+			return err
+		}
+		if required {
+			return persistOAuthConsent(tx, client.ID, userID, scope, now)
+		}
+		return nil
+	}); err != nil {
 		respondError(c, http.StatusInternalServerError, "server_error", "Gagal menyimpan authorization code.")
 		return
 	}
-	auditFromContext(c, AuditOAuthConsent, "oauth_client", client.ID, "Izin akses aplikasi disetujui: "+client.Name+".")
+	if required {
+		auditFromContext(c, AuditOAuthConsent, "oauth_client", client.ID, "Izin akses aplikasi disetujui: "+client.Name+".")
+	}
 
 	redirectURL, err := oauthRedirectURL(req.RedirectURI, map[string]string{
 		"code":  rawCode,
