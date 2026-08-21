@@ -40,10 +40,17 @@ func consentCovers(consent models.OAuthConsent, requestedScope string) bool {
 	return consent.ID != "" && consent.RevokedAt == nil && utils.ScopeAllowed(requestedScope, consent.Scope)
 }
 
-func consentRequired(db *gorm.DB, clientID, userID, requestedScope string, force bool) (bool, error) {
-	if force {
-		return true, nil
-	}
+// Pemilihan akun hanya boleh menerbitkan code dari consent yang masih aktif.
+// Consent baru atau scope tambahan harus dikonfirmasi secara eksplisit oleh UI.
+func missingRequiredConsentApproval(required, approved bool) bool {
+	return required && !approved
+}
+
+// Consent adalah grant persisten, bukan bagian dari sesi login SSO. Karena itu,
+// prompt=consent dari RP tidak boleh membatalkan grant aktif yang masih mencakup
+// seluruh scope. Pengguna akan diminta menyetujui lagi hanya jika grant belum ada,
+// telah dicabut, atau scope yang diminta bertambah.
+func consentRequired(db *gorm.DB, clientID, userID, requestedScope string) (bool, error) {
 	var consent models.OAuthConsent
 	err := db.Where("client_id = ? AND user_id = ?", clientID, userID).First(&consent).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -115,7 +122,7 @@ func GetOAuthAuthorizationContext(c *gin.Context) {
 		respondError(c, http.StatusInternalServerError, "server_error", "Kebijakan akses aplikasi belum dapat diperiksa.")
 		return
 	}
-	required, err := consentRequired(database.DB, client.ID, c.GetString("userID"), scope, prompts[promptConsent])
+	required, err := consentRequired(database.DB, client.ID, c.GetString("userID"), scope)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "server_error", "Status persetujuan aplikasi belum dapat diperiksa.")
 		return

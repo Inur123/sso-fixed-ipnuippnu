@@ -45,7 +45,7 @@ GET /oauth/authorize?response_type=code
   &nonce=<nonce>
   &code_challenge=<challenge>
   &code_challenge_method=S256 HTTP/1.1
-Host: localhost:8080
+Host: api.pelajarnumagetan.id
 ```
 
 Semua parameter berikut wajib: `response_type`, `client_id`, `redirect_uri`, `scope`, `state`, `code_challenge`, dan `code_challenge_method`. `nonce` wajib ketika scope memuat `openid`.
@@ -53,26 +53,27 @@ Semua parameter berikut wajib: `response_type`, `client_id`, `redirect_uri`, `sc
 Authorization server memvalidasi client, exact redirect URI, scope, PKCE, akun aktif, email terverifikasi, serta assignment aplikasi. Browser kemudian melihat layar login/consent portal.
 
 Persetujuan scope disimpan per pasangan pengguna dan aplikasi. Request berikutnya
-tidak meminta persetujuan yang sama lagi selama scope tidak bertambah dan grant
-belum dicabut. Gunakan `prompt=select_account` bila RP ingin selalu menampilkan
-pemilih akun SSO; pengguna dapat melanjutkan dengan akun yang sedang aktif atau
-memilih **Gunakan akun lain**. Logout lokal RP maupun berakhirnya sesi login SSO
-tidak menghapus persetujuan scope. Persetujuan diminta lagi hanya ketika pengguna
-menekan **Cabut akses**, assignment dicabut lalu diberikan kembali, scope bertambah,
-atau RP secara eksplisit mengirim `prompt=consent`.
+membuka pemilih akun ringkas tanpa daftar scope selama sesi SSO masih aktif, scope
+tidak bertambah, dan grant belum dicabut. Pengguna dapat melanjutkan dengan akun
+yang sedang aktif atau memilih **Gunakan akun lain**. Logout lokal RP maupun
+berakhirnya sesi login SSO tidak menghapus persetujuan scope. Persetujuan diminta
+lagi hanya ketika pengguna menekan **Cabut akses**, assignment dicabut lalu diberikan
+kembali, atau scope bertambah. Parameter `prompt=consent` tetap diterima untuk
+kompatibilitas RP, tetapi tidak menghapus maupun memaksa persetujuan ulang atas grant
+aktif yang sudah mencakup seluruh scope.
 
 ## 2. Authorization response
 
 Sukses:
 
 ```text
-http://localhost:3002/auth/callback?code=<code>&state=<state>&iss=http%3A%2F%2Flocalhost%3A8080
+http://localhost:3002/auth/callback?code=<code>&state=<state>&iss=https%3A%2F%2Fapi.pelajarnumagetan.id
 ```
 
 Error setelah redirect URI dipercaya:
 
 ```text
-http://localhost:3002/auth/callback?error=invalid_request&error_description=<pesan>&state=<state>&iss=http%3A%2F%2Flocalhost%3A8080
+http://localhost:3002/auth/callback?error=invalid_request&error_description=<pesan>&state=<state>&iss=https%3A%2F%2Fapi.pelajarnumagetan.id
 ```
 
 RP harus memeriksa `state` dan `iss` sebelum memproses `code` maupun error. Authorization code bersifat sekali pakai dan berlaku 5 menit.
@@ -85,7 +86,7 @@ RP mengirim form URL-encoded. `redirect_uri` harus sama persis dengan authorizat
 
 ```http
 POST /oauth/token HTTP/1.1
-Host: localhost:8080
+Host: api.pelajarnumagetan.id
 Content-Type: application/x-www-form-urlencoded
 
 grant_type=authorization_code&
@@ -117,7 +118,7 @@ Setelah ID token lolos validasi, panggil UserInfo dengan access token:
 
 ```http
 GET /v1/user/me HTTP/1.1
-Host: localhost:8080
+Host: api.pelajarnumagetan.id
 Authorization: Bearer <access-token>
 ```
 
@@ -127,7 +128,7 @@ Gunakan `(issuer, sub)` sebagai identitas stabil. Pastikan `sub` UserInfo sama d
 
 ```http
 POST /oauth/token HTTP/1.1
-Host: localhost:8080
+Host: api.pelajarnumagetan.id
 Content-Type: application/x-www-form-urlencoded
 
 grant_type=refresh_token&

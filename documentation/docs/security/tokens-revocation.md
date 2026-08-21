@@ -50,7 +50,7 @@ Jangan melakukan fallback ke refresh token yang lebih lama.
 Panggil dari backend menggunakan refresh token terbaru (atau access token):
 
 ```bash
-curl -sS -X POST http://localhost:8080/oauth/revoke \
+curl -sS -X POST https://api.pelajarnumagetan.id/oauth/revoke \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode 'token=<refresh-token-terbaru>' \
   --data-urlencode 'client_id=<client-id>' \

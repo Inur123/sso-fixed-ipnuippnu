@@ -10,6 +10,11 @@ DB_NAME="ipnu_ippnu_id_sso"
 DEPLOY_ADMIN_EMAIL="${DEPLOY_ADMIN_EMAIL:?DEPLOY_ADMIN_EMAIL wajib diatur}"
 DEPLOY_MAIL_USERNAME="${DEPLOY_MAIL_USERNAME:?DEPLOY_MAIL_USERNAME wajib diatur}"
 DEPLOY_MAIL_FROM_ADDRESS="${DEPLOY_MAIL_FROM_ADDRESS:?DEPLOY_MAIL_FROM_ADDRESS wajib diatur}"
+DEPLOY_R2_ACCOUNT_ID="${DEPLOY_R2_ACCOUNT_ID:-}"
+DEPLOY_R2_ACCESS_KEY_ID="${DEPLOY_R2_ACCESS_KEY_ID:-}"
+DEPLOY_R2_SECRET_ACCESS_KEY="${DEPLOY_R2_SECRET_ACCESS_KEY:-}"
+DEPLOY_R2_BUCKET_NAME="${DEPLOY_R2_BUCKET_NAME:-}"
+DEPLOY_R2_PUBLIC_URL="${DEPLOY_R2_PUBLIC_URL:-}"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Jalankan sebagai root." >&2
@@ -23,16 +28,33 @@ fi
 install -d -m 0755 "${APP_ROOT}" "${APP_ROOT}/releases"
 install -d -o root -g "${APP_GROUP}" -m 0750 "${CONFIG_ROOT}"
 
-# Artifact release bersifat read-only bagi service. Hanya cache image Next.js
-# yang boleh ditulis agar optimasi logo/aset tidak gagal oleh ProtectSystem.
+# Jalankan setup setelah symlink `current` diarahkan ke release baru. Artifact
+# release dibuat read-only bagi service; hanya cache image Next.js yang boleh
+# ditulis agar optimasi logo/aset tidak gagal oleh ProtectSystem.
 if [[ -L "${APP_ROOT}/current" ]]; then
   current_release="$(readlink -f "${APP_ROOT}/current")"
+  artifact_validator="${current_release}/deploy/verify-frontend-artifact.sh"
+  if [[ ! -f "${artifact_validator}" ]]; then
+    echo "Validator artifact frontend tidak tersedia di release." >&2
+    exit 1
+  fi
+  bash "${artifact_validator}" \
+    "${current_release}/frontend" \
+    "https://api.pelajarnumagetan.id" \
+    "https://doc.pelajarnumagetan.id"
+
   chown -R root:"${APP_GROUP}" "${current_release}"
   find "${current_release}" -type d -exec chmod 0755 {} +
   find "${current_release}" -type f -exec chmod 0644 {} +
   chmod 0755 "${current_release}/backend/sso-backend"
+  find "${current_release}/deploy" -type f -name '*.sh' -exec chmod 0755 {} +
   install -d -o "${APP_USER}" -g "${APP_GROUP}" -m 0750 \
     "${current_release}/frontend/.next/cache"
+  if ! sudo -u "${APP_USER}" test -r \
+    "${current_release}/frontend/public/images/logo-sso.png"; then
+    echo "Logo frontend tidak dapat dibaca oleh ${APP_USER}." >&2
+    exit 1
+  fi
 fi
 
 if [[ ! -s "${CONFIG_ROOT}/oidc-private.pem" ]]; then
@@ -47,6 +69,17 @@ if [[ ! -s "${CONFIG_ROOT}/backend.env" ]]; then
     echo "${CONFIG_ROOT}/mail-password belum tersedia." >&2
     exit 1
   fi
+  for required_var in \
+    DEPLOY_R2_ACCOUNT_ID \
+    DEPLOY_R2_ACCESS_KEY_ID \
+    DEPLOY_R2_SECRET_ACCESS_KEY \
+    DEPLOY_R2_BUCKET_NAME \
+    DEPLOY_R2_PUBLIC_URL; do
+    if [[ -z "${!required_var}" ]]; then
+      echo "${required_var} wajib diatur untuk penyimpanan R2." >&2
+      exit 1
+    fi
+  done
 
   db_password="$(openssl rand -hex 32)"
   jwt_secret="$(openssl rand -hex 48)"
@@ -69,11 +102,11 @@ if [[ ! -s "${CONFIG_ROOT}/backend.env" ]]; then
       'APP_ENV=production' \
       'APP_NAME=IPNU IPPNU Magetan ID' \
       'BACKEND_PORT=8180' \
-      'BACKEND_PUBLIC_URL=https://api.ipnu.web.id' \
-      'FRONTEND_PUBLIC_URL=https://ipnu.web.id' \
-      'BACKEND_CORS_ALLOWED_ORIGINS=https://ipnu.web.id' \
+      'BACKEND_PUBLIC_URL=https://api.pelajarnumagetan.id' \
+      'FRONTEND_PUBLIC_URL=https://pelajarnumagetan.id' \
+      'BACKEND_CORS_ALLOWED_ORIGINS=https://pelajarnumagetan.id' \
       'SESSION_COOKIE_NAME=sso_session' \
-      'SESSION_COOKIE_DOMAIN=.ipnu.web.id' \
+      'SESSION_COOKIE_DOMAIN=.pelajarnumagetan.id' \
       'DB_HOST=127.0.0.1' \
       "DB_USER=${DB_USER}" \
       "DB_PASSWORD=${db_password}" \
@@ -98,6 +131,11 @@ if [[ ! -s "${CONFIG_ROOT}/backend.env" ]]; then
       "MAIL_FROM_ADDRESS=${DEPLOY_MAIL_FROM_ADDRESS}" \
       'MAIL_FROM_NAME=SSO IPNU IPPNU Magetan ID' \
       'MAIL_OTP_TTL_MINUTES=10' \
+      "R2_ACCOUNT_ID=${DEPLOY_R2_ACCOUNT_ID}" \
+      "R2_ACCESS_KEY_ID=${DEPLOY_R2_ACCESS_KEY_ID}" \
+      "R2_SECRET_ACCESS_KEY=${DEPLOY_R2_SECRET_ACCESS_KEY}" \
+      "R2_BUCKET_NAME=${DEPLOY_R2_BUCKET_NAME}" \
+      "R2_PUBLIC_URL=${DEPLOY_R2_PUBLIC_URL}" \
       'PROVISIONING_TARGETS_JSON={}' \
       'PROVISIONING_MAX_ATTEMPTS=12' \
       'PROVISIONING_CONCURRENCY=4' \
@@ -108,13 +146,25 @@ if [[ ! -s "${CONFIG_ROOT}/backend.env" ]]; then
   shred -u "${CONFIG_ROOT}/mail-password" 2>/dev/null || rm -f "${CONFIG_ROOT}/mail-password"
 fi
 
+for required_key in \
+  R2_ACCOUNT_ID \
+  R2_ACCESS_KEY_ID \
+  R2_SECRET_ACCESS_KEY \
+  R2_BUCKET_NAME \
+  R2_PUBLIC_URL; do
+  if ! grep -Eq "^${required_key}=.+" "${CONFIG_ROOT}/backend.env"; then
+    echo "${required_key} belum dikonfigurasi di ${CONFIG_ROOT}/backend.env." >&2
+    exit 1
+  fi
+done
+
 cat > "${CONFIG_ROOT}/frontend.env" <<'EOF'
 NODE_ENV=production
 PORT=3100
 HOSTNAME=127.0.0.1
 BACKEND_SESSION_COOKIE_NAME=sso_session
-NEXT_PUBLIC_BACKEND_URL=https://api.ipnu.web.id
-NEXT_PUBLIC_DOCUMENTATION_URL=https://doc.ipnu.web.id
+NEXT_PUBLIC_BACKEND_URL=https://api.pelajarnumagetan.id
+NEXT_PUBLIC_DOCUMENTATION_URL=https://doc.pelajarnumagetan.id
 NEXT_PUBLIC_APP_NAME=IPNU IPPNU Magetan ID
 NEXT_PUBLIC_APP_TAGLINE=Single Sign-On
 NEXT_PUBLIC_APP_DESCRIPTION=Pusat identitas dan Single Sign-On resmi PC IPNU IPPNU Kabupaten Magetan.
@@ -143,7 +193,6 @@ KillSignal=SIGTERM
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=/opt/ipnu-sso/current/frontend/.next/cache
 ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
@@ -173,10 +222,12 @@ EnvironmentFile=/etc/ipnu-sso/frontend.env
 ExecStart=/usr/bin/node /opt/ipnu-sso/current/frontend/server.js
 Restart=on-failure
 RestartSec=3
+SuccessExitStatus=143 SIGTERM
 TimeoutStopSec=20
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
+ReadWritePaths=/opt/ipnu-sso/current/frontend/.next/cache
 ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
@@ -211,12 +262,32 @@ real_ip_header CF-Connecting-IP;
 real_ip_recursive on;
 EOF
 
+TLS_CERT_DIR="/etc/letsencrypt/live/pelajarnumagetan.id"
+if [[ ! -s "${TLS_CERT_DIR}/fullchain.pem" || ! -s "${TLS_CERT_DIR}/privkey.pem" ]]; then
+  echo "Sertifikat TLS pelajarnumagetan.id belum tersedia." >&2
+  exit 1
+fi
+
 cat > /etc/nginx/sites-available/ipnu-sso.conf <<'EOF'
 server {
     listen 80;
     listen [::]:80;
-    server_name ipnu.web.id;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name pelajarnumagetan.id;
     include /etc/nginx/snippets/ipnu-sso-cloudflare-real-ip.conf;
+    ssl_certificate /etc/letsencrypt/live/pelajarnumagetan.id/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/pelajarnumagetan.id/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    location /images/ {
+        root /opt/ipnu-sso/current/frontend/public;
+        try_files $uri =404;
+        access_log off;
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800";
+    }
 
     location / {
         proxy_pass http://127.0.0.1:3100;
@@ -234,8 +305,14 @@ server {
 server {
     listen 80;
     listen [::]:80;
-    server_name api.ipnu.web.id;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name api.pelajarnumagetan.id;
     include /etc/nginx/snippets/ipnu-sso-cloudflare-real-ip.conf;
+    ssl_certificate /etc/letsencrypt/live/pelajarnumagetan.id/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/pelajarnumagetan.id/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
     client_max_body_size 1m;
 
     location / {
@@ -253,8 +330,14 @@ server {
 server {
     listen 80;
     listen [::]:80;
-    server_name doc.ipnu.web.id;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name doc.pelajarnumagetan.id;
     include /etc/nginx/snippets/ipnu-sso-cloudflare-real-ip.conf;
+    ssl_certificate /etc/letsencrypt/live/pelajarnumagetan.id/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/pelajarnumagetan.id/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
     root /opt/ipnu-sso/current/docs;
     index index.html;
 

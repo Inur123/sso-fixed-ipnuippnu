@@ -1,13 +1,29 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { AlertCircle, AppWindow, Check, CircleUserRoundIcon, ShieldCheck, X } from "lucide-react";
+import {
+  AlertCircle,
+  AppWindow,
+  Check,
+  ChevronRight,
+  CircleUserRoundIcon,
+  ShieldCheck,
+  X,
+} from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
 import { Brand } from "@/components/brand";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  AvatarBadge,
+} from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,6 +37,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { UserAvatar } from "@/components/user-avatar";
 import { APIError, apiFetch, getErrorMessage } from "@/lib/api";
 
 interface ClientInfo {
@@ -62,6 +79,50 @@ function AuthorizeContent() {
     request.response_type === "code" &&
     request.code_challenge_method === "S256" &&
     (!request.scope.split(" ").includes("openid") || Boolean(request.nonce));
+
+  const submitAuthorization = useCallback(
+    async (consentApproved: boolean) => {
+      setApproving(true);
+      setError("");
+      try {
+        const data = await apiFetch<{ redirect_url: string }>(
+          "/oauth/authorize",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              ...request,
+              consent_approved: consentApproved,
+            }),
+          },
+        );
+        window.location.assign(data.redirect_url);
+      } catch (approvalError) {
+        if (
+          approvalError instanceof APIError &&
+          typeof approvalError.payload?.redirect_url === "string"
+        ) {
+          window.location.assign(approvalError.payload.redirect_url);
+          return;
+        }
+        if (
+          approvalError instanceof APIError &&
+          approvalError.code === "consent_required"
+        ) {
+          setClient((current) =>
+            current
+              ? {
+                  ...current,
+                  consent_required: true,
+                }
+              : current,
+          );
+        }
+        setError(getErrorMessage(approvalError));
+        setApproving(false);
+      }
+    },
+    [request],
+  );
 
   useEffect(() => {
     if (authLoading) return;
@@ -110,26 +171,8 @@ function AuthorizeContent() {
     user,
   ]);
 
-  async function approve() {
-    setApproving(true);
-    setError("");
-    try {
-      const data = await apiFetch<{ redirect_url: string }>(
-        "/oauth/authorize",
-        { method: "POST", body: JSON.stringify(request) },
-      );
-      window.location.assign(data.redirect_url);
-    } catch (approvalError) {
-      if (
-        approvalError instanceof APIError &&
-        typeof approvalError.payload?.redirect_url === "string"
-      ) {
-        window.location.assign(approvalError.payload.redirect_url);
-        return;
-      }
-      setError(getErrorMessage(approvalError));
-      setApproving(false);
-    }
+  function approve() {
+    void submitAuthorization(Boolean(client?.consent_required));
   }
 
   function cancel() {
@@ -168,12 +211,93 @@ function AuthorizeContent() {
       </main>
     );
 
-  const initials = user.name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
+  if (client && !client.consent_required) {
+    return (
+      <main className="flex min-h-svh items-center justify-center bg-muted/30 p-4 sm:p-8">
+        <Card className="w-full max-w-lg overflow-hidden border-t-4 border-t-primary shadow-xl shadow-primary/5">
+          <CardHeader className="space-y-6 pb-4">
+            <Brand />
+            <div>
+              <CardTitle className="text-2xl tracking-tight">Pilih akun</CardTitle>
+              <CardDescription className="mt-2 leading-6">
+                Pilih akun untuk melanjutkan ke{" "}
+                <span className="font-medium text-foreground">{client.name}</span>.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
+            <div className="overflow-hidden rounded-2xl border bg-background shadow-sm">
+              <button
+                type="button"
+                className="group flex w-full items-center gap-4 p-5 text-left transition-colors hover:bg-primary/[0.04] focus-visible:bg-primary/[0.04] focus-visible:outline-none disabled:pointer-events-none disabled:opacity-60"
+                onClick={approve}
+                disabled={approving}
+              >
+                <UserAvatar
+                  size="lg"
+                  className="size-12 ring-4 ring-primary/10"
+                  name={user.name}
+                  src={user.avatar}
+                  fallbackClassName="bg-primary/10 font-semibold text-primary"
+                >
+                  <AvatarBadge className="size-4">
+                    <Check className="size-2.5" />
+                  </AvatarBadge>
+                </UserAvatar>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-semibold">{user.name}</span>
+                  <span className="mt-1 block truncate text-sm text-muted-foreground">
+                    {user.email}
+                  </span>
+                </span>
+                <ChevronRight className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+              </button>
+
+              <Separator />
+
+              <button
+                type="button"
+                className="group flex w-full items-center gap-4 p-5 text-left transition-colors hover:bg-muted/60 focus-visible:bg-muted/60 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-60"
+                onClick={useAnotherAccount}
+                disabled={approving}
+              >
+                <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted text-primary">
+                  <CircleUserRoundIcon className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold text-primary">
+                    Gunakan akun lain
+                  </span>
+                  <span className="mt-1 block text-sm text-muted-foreground">
+                    Masuk dengan akun IPNU IPPNU ID yang berbeda
+                  </span>
+                </span>
+                <ChevronRight className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+              </button>
+            </div>
+
+            <Button
+              variant="ghost"
+              className="w-full text-muted-foreground"
+              onClick={cancel}
+              disabled={approving}
+            >
+              <X />
+              Batal
+            </Button>
+          </CardContent>
+        </Card>
+      </main>
+    );
+  }
+
   return (
     <main className="flex min-h-svh items-center justify-center bg-muted/30 p-4 sm:p-8">
       <Card className="w-full max-w-lg shadow-xl shadow-primary/5">
@@ -181,7 +305,9 @@ function AuthorizeContent() {
           <Brand />
           <div>
             <CardTitle className="text-xl">
-              {client && !client.consent_required ? "Pilih akun" : "Izinkan akses aplikasi"}
+              {client && !client.consent_required
+                ? "Pilih akun"
+                : "Izinkan akses aplikasi"}
             </CardTitle>
             <CardDescription className="mt-2">
               {client && !client.consent_required
@@ -210,58 +336,66 @@ function AuthorizeContent() {
                   </p>
                 </div>
               </div>
-              {client.consent_required && <div>
-                <p className="mb-3 text-sm font-medium">Aplikasi meminta:</p>
-                <div className="space-y-2">
-                  {request.scope
-                    .split(" ")
-                    .filter(Boolean)
-                    .map((scope) => (
-                      <div
-                        key={scope}
-                        className="flex items-center gap-3 rounded-lg border p-3 text-sm"
-                      >
-                        <Check className="size-4 text-primary" />
-                        <span className="flex-1">
-                          {scope === "email"
-                            ? "Alamat email"
-                            : scope === "profile"
-                              ? "Profil dasar"
-                              : scope === "openid"
-                                ? "Identitas OpenID"
-                                : scope}
-                        </span>
-                        <Badge variant="secondary">{scope}</Badge>
-                      </div>
-                    ))}
+              {client.consent_required && (
+                <div>
+                  <p className="mb-3 text-sm font-medium">Aplikasi meminta:</p>
+                  <div className="space-y-2">
+                    {request.scope
+                      .split(" ")
+                      .filter(Boolean)
+                      .map((scope) => (
+                        <div
+                          key={scope}
+                          className="flex items-center gap-3 rounded-lg border p-3 text-sm"
+                        >
+                          <Check className="size-4 text-primary" />
+                          <span className="flex-1">
+                            {scope === "email"
+                              ? "Alamat email"
+                              : scope === "profile"
+                                ? "Profil dasar"
+                                : scope === "openid"
+                                  ? "Identitas OpenID"
+                                  : scope}
+                          </span>
+                          <Badge variant="secondary">{scope}</Badge>
+                        </div>
+                      ))}
+                  </div>
                 </div>
-              </div>}
+              )}
             </>
           )}
           <Separator />
           <div className="flex items-center gap-3">
-            <Avatar>
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="text-sm font-medium">Masuk sebagai {user.name}</p>
-              <p className="text-xs text-muted-foreground">{user.email}</p>
+            <UserAvatar name={user.name} src={user.avatar} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">
+                Masuk sebagai {user.name}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
             </div>
-            <ShieldCheck className="ml-auto size-5 text-primary" />
+            <ShieldCheck className="hidden size-5 shrink-0 text-primary sm:block" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={useAnotherAccount}
+              disabled={approving}
+            >
+              <CircleUserRoundIcon />
+              Ganti akun
+            </Button>
           </div>
         </CardContent>
         <CardFooter className="grid grid-cols-2 gap-3">
-          {!client || !client.consent_required ? (
-            <Button variant="outline" onClick={useAnotherAccount} disabled={approving}>
-              <CircleUserRoundIcon />
-              Gunakan akun lain
-            </Button>
-          ) : (
-            <Button variant="outline" onClick={cancel} disabled={approving}>
-              <X />
-              Tolak
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            onClick={cancel}
+            disabled={!client || approving}
+          >
+            <X />
+            {client?.consent_required ? "Tolak" : "Batal"}
+          </Button>
           <Button onClick={approve} disabled={!client || approving}>
             {approving ? <Spinner /> : <Check />}
             {approving

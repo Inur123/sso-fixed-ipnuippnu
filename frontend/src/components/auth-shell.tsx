@@ -25,13 +25,13 @@ export function AuthShell({
                 SSO terpusat & aman
               </Badge>
               <h1 className="max-w-lg text-4xl leading-tight font-semibold tracking-[-0.035em] xl:text-5xl">
-                Satu identitas untuk layanan IPNU dan IPPNU.
+                Satu identitas untuk seluruh layanan organisasi.
               </h1>
               <p className="max-w-md text-base leading-7 text-primary-foreground/75">
-                Akses layanan organisasi melalui OAuth 2.0, PKCE, kontrol role, dan sesi aplikasi yang dapat dicabut.
+                Masuk dengan satu akun untuk mengakses semua layanan digital PC IPNU IPPNU Kabupaten Magetan.
               </p>
             </div>
-            <p className="relative text-xs text-primary-foreground/60">IPNU IPPNU ID · Single Sign-On</p>
+            <p className="relative text-xs text-primary-foreground/60">IPNU IPPNU Magetan ID · Single Sign-On</p>
           </section>
           <div className="auth-shell-form flex w-full min-w-0 max-w-full items-start px-5 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-8 sm:py-10 lg:items-center lg:px-10 lg:py-12 xl:px-14">
             <Card className="mx-auto w-full min-w-0 max-w-[30rem] gap-6 bg-transparent py-0 ring-0 shadow-none">

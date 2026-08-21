@@ -8,7 +8,25 @@ npm install
 npm run dev
 ```
 
-Frontend hanya memerlukan `NEXT_PUBLIC_BACKEND_URL`. Jangan menyimpan SMTP, database password, JWT secret, atau OAuth client secret pada environment yang diawali `NEXT_PUBLIC_`.
+Frontend hanya memerlukan konfigurasi publik berawalan `NEXT_PUBLIC_`. Jangan
+menyimpan SMTP, database password, JWT secret, atau OAuth client secret pada
+environment tersebut.
+
+Untuk development gunakan:
+
+```bash
+npm run dev
+```
+
+Untuk artifact produksi wajib gunakan:
+
+```bash
+npm run build:production
+```
+
+Perintah produksi membaca `.env.production` secara eksplisit, mengoverride
+`.env.local`, lalu memvalidasi chunk hasil build. Build akan gagal jika endpoint
+API/dokumentasi masih menunjuk ke localhost atau URL produksi tidak tertanam.
 
 Halaman utama:
 

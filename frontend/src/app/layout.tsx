@@ -21,6 +21,22 @@ export const metadata: Metadata = {
     shortcut: "/images/logo-sso.png",
     apple: "/images/logo-sso.png",
   },
+  openGraph: {
+    title: PUBLIC_APP_NAME,
+    description: PUBLIC_APP_DESCRIPTION,
+    url: "https://pelajarnumagetan.id",
+    siteName: PUBLIC_APP_NAME,
+    images: [
+      {
+        url: "https://pelajarnumagetan.id/images/logo-sso.png",
+        width: 512,
+        height: 512,
+        alt: `Logo ${PUBLIC_APP_NAME}`,
+      },
+    ],
+    locale: "id_ID",
+    type: "website",
+  },
 };
 
 async function getInitialUser(): Promise<User | null> {

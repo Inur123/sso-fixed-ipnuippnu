@@ -12,7 +12,7 @@ npm install jose
 ```
 
 ```dotenv title=".env.local (server-only)"
-SSO_ISSUER=http://localhost:8080
+SSO_ISSUER=https://api.pelajarnumagetan.id
 SSO_CLIENT_ID=<client-id>
 SSO_CLIENT_SECRET=<client-secret>
 SSO_REDIRECT_URI=http://localhost:3002/api/auth/sso/callback

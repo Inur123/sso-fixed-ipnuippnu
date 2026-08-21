@@ -101,6 +101,7 @@ func main() {
 	if err := provisioning.Configure(); err != nil {
 		log.Fatal(err)
 	}
+	utils.InitR2Client()
 	trustedProxies, err := trustedProxiesFromEnv()
 	if err != nil {
 		log.Fatal(err)
@@ -187,6 +188,8 @@ func main() {
 	// User Endpoints
 	r.GET("/v1/user/me", controllers.RequireAuthToken, controllers.GetMe)
 	r.PATCH("/api/profile", controllers.RequireSession, controllers.UpdateProfile)
+	r.POST("/api/profile/avatar", controllers.RequireSession, controllers.UploadAvatar)
+	r.DELETE("/api/profile/avatar", controllers.RequireSession, controllers.DeleteAvatar)
 	r.POST("/api/profile/password", controllers.RequireSession, controllers.ChangePassword)
 	// Aplikasi SSO yang masih memiliki grant aktif milik pengguna.
 	r.GET("/api/connections", controllers.RequireSession, controllers.GetApplicationConnections)

@@ -5,7 +5,7 @@ description: Daftar endpoint publik OAuth 2.0 dan OpenID Connect IPNU IPPNU ID.
 
 # Referensi endpoint
 
-Gunakan origin issuer dari konfigurasi lingkungan. Tabel menggunakan `http://localhost:8080` sebagai contoh lokal.
+Gunakan origin issuer dari konfigurasi lingkungan. Tabel menggunakan `https://api.pelajarnumagetan.id` sebagai contoh lokal.
 
 | Metode | Path | Pemanggil | Fungsi |
 | --- | --- | --- | --- |

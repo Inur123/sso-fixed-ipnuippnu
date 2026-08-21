@@ -9,11 +9,11 @@ import { toast } from "sonner";
 import { useAuth } from "@/components/auth-provider";
 import { Brand } from "@/components/brand";
 import { DashboardLoadingSkeleton } from "@/components/dashboard-loading-skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger } from "@/components/ui/sidebar";
+import { UserAvatar } from "@/components/user-avatar";
 import { apiFetch, getErrorMessage } from "@/lib/api";
 
 const memberNavigation = [
@@ -60,8 +60,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   const navigation = user?.role === "super_admin" ? [...memberNavigation, ...adminNavigation] : memberNavigation;
-  const initials = user?.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase() ?? "";
-
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon" className="border-r">
@@ -98,7 +96,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="group h-auto gap-3 px-2 py-1.5" aria-label="Buka menu akun dan logout">
-                  <Avatar className="size-8"><AvatarImage src={user.avatar} alt={user.name} /><AvatarFallback>{initials}</AvatarFallback></Avatar>
+                  <UserAvatar className="size-8" name={user.name} src={user.avatar} />
                   <span className="hidden text-left sm:grid"><span className="max-w-36 truncate text-sm font-medium">{user.name}</span><span className="text-xs text-muted-foreground">{user.role === "super_admin" ? "Super admin" : "Anggota"}</span></span>
                   <ChevronDown className="size-4 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" aria-hidden="true" />
                 </Button>

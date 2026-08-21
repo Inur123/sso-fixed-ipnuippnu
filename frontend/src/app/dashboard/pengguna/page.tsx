@@ -156,10 +156,10 @@ export default function PenggunaPage() {
     <div className="space-y-7">
       <PageHeader title="Manajemen pengguna" description="Lihat seluruh akun, periksa status verifikasi, atur role, dan kendalikan akses login anggota." />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card size="sm"><CardContent className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><UsersRound className="size-5" /></span><div><p className="text-xs text-muted-foreground">Total pengguna</p><p className="text-xl font-semibold tabular-nums">{loading ? "—" : total}</p></div></CardContent></Card>
-        <Card size="sm"><CardContent className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700"><UserCheck className="size-5" /></span><div><p className="text-xs text-muted-foreground">Aktif di halaman ini</p><p className="text-xl font-semibold tabular-nums">{loading ? "—" : activeCount}</p></div></CardContent></Card>
-        <Card size="sm"><CardContent className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-sky-500/10 text-sky-700"><BadgeCheck className="size-5" /></span><div><p className="text-xs text-muted-foreground">Email terverifikasi</p><p className="text-xl font-semibold tabular-nums">{loading ? "—" : verifiedCount}</p></div></CardContent></Card>
+      <div className="grid gap-4 sm:grid-cols-3" aria-busy={loading}>
+        <Card size="sm"><CardContent className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary"><UsersRound className="size-5" /></span><div><p className="text-xs text-muted-foreground">Total pengguna</p><MetricValue loading={loading} value={total} /></div></CardContent></Card>
+        <Card size="sm"><CardContent className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700"><UserCheck className="size-5" /></span><div><p className="text-xs text-muted-foreground">Aktif di halaman ini</p><MetricValue loading={loading} value={activeCount} /></div></CardContent></Card>
+        <Card size="sm"><CardContent className="flex items-center gap-3"><span className="flex size-10 items-center justify-center rounded-xl bg-sky-500/10 text-sky-700"><BadgeCheck className="size-5" /></span><div><p className="text-xs text-muted-foreground">Email terverifikasi</p><MetricValue loading={loading} value={verifiedCount} /></div></CardContent></Card>
       </div>
 
       <Card>
@@ -211,6 +211,13 @@ export default function PenggunaPage() {
       </AlertDialog>
     </div>
   );
+}
+
+function MetricValue({ loading, value }: { loading: boolean; value: number }) {
+  if (loading) {
+    return <Skeleton className="mt-1 h-6 w-10" aria-hidden="true" />;
+  }
+  return <p className="text-xl font-semibold tabular-nums">{value}</p>;
 }
 
 function UserIdentity({ user }: { user: User }) {

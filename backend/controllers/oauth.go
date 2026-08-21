@@ -143,6 +143,7 @@ type AuthorizeRequest struct {
 	CodeChallengeMethod string `json:"code_challenge_method" binding:"required"`
 	Nonce               string `json:"nonce"`
 	Prompt              string `json:"prompt"`
+	ConsentApproved     bool   `json:"consent_approved"`
 }
 
 func OAuthAuthorize(c *gin.Context) {
@@ -185,13 +186,17 @@ func OAuthAuthorize(c *gin.Context) {
 	}
 
 	userID := c.GetString("userID")
-	required, err := consentRequired(database.DB, client.ID, userID, scope, prompts[promptConsent])
+	required, err := consentRequired(database.DB, client.ID, userID, scope)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "server_error", "Status persetujuan aplikasi belum dapat diperiksa.")
 		return
 	}
 	if prompts[promptNone] && required {
 		redirectOAuthError(c, req.RedirectURI, req.State, "consent_required", "Persetujuan pengguna diperlukan.")
+		return
+	}
+	if missingRequiredConsentApproval(required, req.ConsentApproved) {
+		respondError(c, http.StatusForbidden, "consent_required", "Tinjau dan setujui izin aplikasi sebelum melanjutkan.")
 		return
 	}
 
@@ -219,10 +224,7 @@ func OAuthAuthorize(c *gin.Context) {
 		if err := tx.Create(&authCode).Error; err != nil {
 			return err
 		}
-		if required {
-			return persistOAuthConsent(tx, client.ID, userID, scope, now)
-		}
-		return nil
+		return persistOAuthConsent(tx, client.ID, userID, scope, now)
 	}); err != nil {
 		respondError(c, http.StatusInternalServerError, "server_error", "Gagal menyimpan authorization code.")
 		return

@@ -12,7 +12,7 @@ composer require firebase/php-jwt
 ```
 
 ```dotenv title=".env"
-SSO_ISSUER=http://localhost:8080
+SSO_ISSUER=https://api.pelajarnumagetan.id
 SSO_CLIENT_ID=<client-id>
 SSO_CLIENT_SECRET=<client-secret>
 SSO_REDIRECT_URI=http://localhost:8000/auth/sso/callback

@@ -1,7 +1,9 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -52,7 +54,6 @@ type UpdateProfileRequest struct {
 	Phone  string `json:"phone" binding:"max=30"`
 	Bio    string `json:"bio" binding:"max=500"`
 	Gender string `json:"gender" binding:"omitempty,oneof=male female other"`
-	Avatar string `json:"avatar" binding:"omitempty,url,max=500"`
 }
 
 func UpdateProfile(c *gin.Context) {
@@ -68,7 +69,7 @@ func UpdateProfile(c *gin.Context) {
 	}
 	updates := map[string]interface{}{
 		"name": strings.TrimSpace(req.Name), "phone": strings.TrimSpace(req.Phone),
-		"bio": strings.TrimSpace(req.Bio), "gender": req.Gender, "avatar": strings.TrimSpace(req.Avatar),
+		"bio": strings.TrimSpace(req.Bio), "gender": req.Gender,
 	}
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Model(user).Updates(updates).Error; err != nil {
@@ -134,4 +135,114 @@ func ChangePassword(c *gin.Context) {
 	}
 	auditFromContext(c, AuditUserPasswordUpdate, "user", user.ID, "Kredensial akun diperbarui; sesi lain dan akses aplikasi lama dicabut.")
 	c.JSON(http.StatusOK, gin.H{"message": "Kata sandi diperbarui; sesi lain dan token aplikasi telah dicabut."})
+}
+
+var allowedAvatarTypes = map[string]bool{
+	"image/jpeg": true,
+	"image/png":  true,
+	"image/webp": true,
+}
+
+const maxAvatarSize = 2 << 20 // 2 MiB
+
+func UploadAvatar(c *gin.Context) {
+	user, ok := currentUser(c)
+	if !ok {
+		respondError(c, http.StatusUnauthorized, "unauthorized", "Login diperlukan.")
+		return
+	}
+
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxAvatarSize+512)
+	file, header, err := c.Request.FormFile("avatar")
+	if err != nil {
+		respondError(c, http.StatusBadRequest, "invalid_request", "File avatar wajib dikirim (maksimal 2 MB).")
+		return
+	}
+	defer file.Close()
+
+	if header.Size > maxAvatarSize {
+		respondError(c, http.StatusRequestEntityTooLarge, "file_too_large", "Ukuran file melebihi batas 2 MB.")
+		return
+	}
+
+	contentType := header.Header.Get("Content-Type")
+	if !allowedAvatarTypes[contentType] {
+		respondError(c, http.StatusBadRequest, "invalid_file_type", "Format file harus JPEG, PNG, atau WebP.")
+		return
+	}
+
+	ext := filepath.Ext(header.Filename)
+	if ext == "" {
+		switch contentType {
+		case "image/jpeg":
+			ext = ".jpg"
+		case "image/png":
+			ext = ".png"
+		case "image/webp":
+			ext = ".webp"
+		}
+	}
+	key := fmt.Sprintf("avatars/%s/%d%s", user.ID, time.Now().UnixMilli(), ext)
+
+	publicURL, err := utils.UploadToR2(c.Request.Context(), key, contentType, file)
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "upload_failed", "Gagal mengunggah avatar.")
+		return
+	}
+
+	// Hapus avatar lama dari R2 jika ada.
+	if oldKey := utils.R2KeyFromPublicURL(user.Avatar); oldKey != "" {
+		_ = utils.DeleteFromR2(c.Request.Context(), oldKey)
+	}
+
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(user).Update("avatar", publicURL).Error; err != nil {
+			return err
+		}
+		if err := tx.First(user, "id = ?", user.ID).Error; err != nil {
+			return err
+		}
+		return provisioning.EnqueueForUser(tx, provisioning.EventUpdated, *user)
+	})
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "server_error", "Gagal menyimpan avatar.")
+		return
+	}
+	provisioning.Notify()
+	auditFromContext(c, AuditUserProfileUpdate, "user", user.ID, "Avatar akun diperbarui.")
+	c.JSON(http.StatusOK, gin.H{"message": "Avatar berhasil diperbarui.", "user": user})
+}
+
+func DeleteAvatar(c *gin.Context) {
+	user, ok := currentUser(c)
+	if !ok {
+		respondError(c, http.StatusUnauthorized, "unauthorized", "Login diperlukan.")
+		return
+	}
+
+	if user.Avatar == "" {
+		respondError(c, http.StatusBadRequest, "no_avatar", "Belum ada avatar yang diunggah.")
+		return
+	}
+
+	if oldKey := utils.R2KeyFromPublicURL(user.Avatar); oldKey != "" {
+		_ = utils.DeleteFromR2(c.Request.Context(), oldKey)
+	}
+
+	err := database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(user).Update("avatar", "").Error; err != nil {
+			return err
+		}
+		if err := tx.First(user, "id = ?", user.ID).Error; err != nil {
+			return err
+		}
+		return provisioning.EnqueueForUser(tx, provisioning.EventUpdated, *user)
+	})
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "server_error", "Gagal menghapus avatar.")
+		return
+	}
+	provisioning.Notify()
+	auditFromContext(c, AuditUserProfileUpdate, "user", user.ID, "Avatar akun dihapus.")
+	c.JSON(http.StatusOK, gin.H{"message": "Avatar berhasil dihapus.", "user": user})
 }

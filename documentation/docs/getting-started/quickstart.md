@@ -6,7 +6,7 @@ description: Alur singkat menghubungkan aplikasi ke SSO IPNU IPPNU ID.
 
 # Quickstart
 
-Contoh ini memakai issuer `http://localhost:8080` dan callback aplikasi `http://localhost:3002/auth/callback`.
+Contoh ini memakai issuer `https://api.pelajarnumagetan.id` dan callback aplikasi `http://localhost:3002/auth/callback`.
 
 ## 1. Buat aplikasi
 
@@ -19,7 +19,7 @@ http://localhost:3002/auth/callback
 Simpan kredensial di server aplikasi:
 
 ```dotenv
-SSO_ISSUER=http://localhost:8080
+SSO_ISSUER=https://api.pelajarnumagetan.id
 SSO_CLIENT_ID=<client-id>
 SSO_CLIENT_SECRET=<client-secret>
 SSO_REDIRECT_URI=http://localhost:3002/auth/callback
@@ -34,7 +34,7 @@ Role aplikasi seperti `viewer` atau `operator` dikelola oleh aplikasi tujuan dan
 ## 3. Ambil konfigurasi OIDC
 
 ```bash
-curl -sS http://localhost:8080/.well-known/openid-configuration
+curl -sS https://api.pelajarnumagetan.id/.well-known/openid-configuration
 ```
 
 Gunakan endpoint dari respons discovery. Jangan menebak URL endpoint ketika masuk production.
@@ -44,7 +44,7 @@ Gunakan endpoint dari respons discovery. Jangan menebak URL endpoint ketika masu
 Server aplikasi membuat `state`, `nonce`, dan `code_verifier` acak. Hitung `code_challenge` dengan SHA-256, lalu arahkan browser ke:
 
 ```text
-http://localhost:8080/oauth/authorize
+https://api.pelajarnumagetan.id/oauth/authorize
   ?response_type=code
   &client_id=<client-id>
   &redirect_uri=http%3A%2F%2Flocalhost%3A3002%2Fauth%2Fcallback
@@ -69,7 +69,7 @@ SSO mengembalikan `code`, `state`, dan `iss`. Sebelum menukar code:
 ## 6. Tukar code dari server
 
 ```bash
-curl -sS -X POST http://localhost:8080/oauth/token \
+curl -sS -X POST https://api.pelajarnumagetan.id/oauth/token \
   -H 'Content-Type: application/x-www-form-urlencoded' \
   --data-urlencode 'grant_type=authorization_code' \
   --data-urlencode 'client_id=<client-id>' \
@@ -86,7 +86,7 @@ Validasi ID token `RS256` memakai `jwks_uri` dari discovery. Periksa `kid`, sign
 Untuk profil terbaru, panggil UserInfo:
 
 ```bash
-curl -sS http://localhost:8080/v1/user/me \
+curl -sS https://api.pelajarnumagetan.id/v1/user/me \
   -H 'Authorization: Bearer <access-token>'
 ```
 

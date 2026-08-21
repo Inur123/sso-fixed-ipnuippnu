@@ -34,3 +34,37 @@ func TestConsentCoversRequestedScope(t *testing.T) {
 		t.Fatal("revoked consent must not be accepted")
 	}
 }
+
+func TestPromptConsentDoesNotInvalidateDurableGrant(t *testing.T) {
+	prompts, err := parseOAuthPrompt("consent")
+	if err != nil || !prompts[promptConsent] {
+		t.Fatalf("expected consent prompt to remain accepted for compatibility, got %#v, %v", prompts, err)
+	}
+
+	consent := models.OAuthConsent{ID: "consent", Scope: "email openid profile"}
+	if !consentCovers(consent, "email openid profile") {
+		t.Fatal("prompt=consent must not invalidate an active durable grant")
+	}
+}
+
+func TestRequiredConsentMustBeExplicitlyApproved(t *testing.T) {
+	tests := []struct {
+		name     string
+		required bool
+		approved bool
+		missing  bool
+	}{
+		{name: "account selection with existing consent", required: false, approved: false, missing: false},
+		{name: "explicit submit with existing consent", required: false, approved: true, missing: false},
+		{name: "new consent without approval", required: true, approved: false, missing: true},
+		{name: "new consent explicitly approved", required: true, approved: true, missing: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := missingRequiredConsentApproval(tt.required, tt.approved); got != tt.missing {
+				t.Fatalf("missingRequiredConsentApproval(%t, %t) = %t, want %t", tt.required, tt.approved, got, tt.missing)
+			}
+		})
+	}
+}

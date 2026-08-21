@@ -12,25 +12,25 @@ Gunakan discovery pada startup atau secara berkala agar konfigurasi endpoint tid
 OpenID Connect:
 
 ```text
-http://localhost:8080/.well-known/openid-configuration
+https://api.pelajarnumagetan.id/.well-known/openid-configuration
 ```
 
 OAuth Authorization Server Metadata:
 
 ```text
-http://localhost:8080/.well-known/oauth-authorization-server
+https://api.pelajarnumagetan.id/.well-known/oauth-authorization-server
 ```
 
 Contoh field penting OIDC:
 
 ```json
 {
-  "issuer": "http://localhost:8080",
-  "authorization_endpoint": "http://localhost:8080/oauth/authorize",
-  "token_endpoint": "http://localhost:8080/oauth/token",
-  "revocation_endpoint": "http://localhost:8080/oauth/revoke",
-  "userinfo_endpoint": "http://localhost:8080/v1/user/me",
-  "jwks_uri": "http://localhost:8080/oauth/jwks",
+  "issuer": "https://api.pelajarnumagetan.id",
+  "authorization_endpoint": "https://api.pelajarnumagetan.id/oauth/authorize",
+  "token_endpoint": "https://api.pelajarnumagetan.id/oauth/token",
+  "revocation_endpoint": "https://api.pelajarnumagetan.id/oauth/revoke",
+  "userinfo_endpoint": "https://api.pelajarnumagetan.id/v1/user/me",
+  "jwks_uri": "https://api.pelajarnumagetan.id/oauth/jwks",
   "response_types_supported": ["code"],
   "grant_types_supported": ["authorization_code", "refresh_token"],
   "id_token_signing_alg_values_supported": ["RS256"],
