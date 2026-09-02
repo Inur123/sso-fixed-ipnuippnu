@@ -12,5 +12,5 @@ pengguna dalam laporan.
 
 ## Versi yang didukung
 
-Selama proyek masih berada pada seri `0.x`, hanya rilis minor terbaru yang
-menerima perbaikan keamanan.
+Hanya rilis minor terbaru pada major version yang aktif yang menerima perbaikan
+keamanan.
