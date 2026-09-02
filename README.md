@@ -3,176 +3,122 @@
 [![CI](https://github.com/Inur123/sso-fixed-ipnuippnu/actions/workflows/ci.yml/badge.svg)](https://github.com/Inur123/sso-fixed-ipnuippnu/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Inur123/sso-fixed-ipnuippnu?display_name=tag)](https://github.com/Inur123/sso-fixed-ipnuippnu/releases)
 
-Pusat identitas dan Single Sign-On resmi PC IPNU IPPNU Kabupaten Magetan.
+**PelajarNU Magetan ID** adalah pusat identitas dan Single Sign-On resmi PC IPNU
+IPPNU Kabupaten Magetan. Sistem ini menyediakan satu akun anggota untuk mengakses
+berbagai aplikasi yang terhubung dalam ekosistem PelajarNU Magetan.
 
-Identity Provider terpusat untuk ekosistem aplikasi IPNU dan IPPNU. Backend menggunakan Go, Gin, GORM, dan PostgreSQL; portal akun menggunakan Next.js, TypeScript, Tailwind CSS, dan komponen shadcn/ui. Seluruh project dijalankan langsung tanpa Docker.
+Portal utama tersedia di [pelajarnumagetan.id](https://pelajarnumagetan.id) dan
+dokumentasi integrasi tersedia di
+[doc.pelajarnumagetan.id](https://doc.pelajarnumagetan.id).
 
-## Fitur utama
+## Tentang sistem
 
-- Registrasi anggota dengan akun langsung aktif dan verifikasi email menggunakan OTP enam digit. Pengiriman email memakai transactional outbox persisten, ciphertext AES-GCM, worker background, serta retry exponential agar request registrasi tidak menunggu SMTP.
-- Login menolak akun yang belum memverifikasi email atau dinonaktifkan super admin.
-- Dua role sistem: `super_admin` dan `anggota`.
-- Manajemen pengguna untuk super admin: pencarian, pagination, perubahan role, aktivasi/nonaktivasi, serta penghapusan akun permanen.
-- Audit log khusus super admin untuk aktivitas autentikasi, administrasi pengguna, dan grant OAuth.
-- Client secret unik per aplikasi, tersimpan terenkripsi untuk reveal terkontrol, serta dapat diregenerasi saat bocor.
-- OAuth 2.0 Authorization Code dengan PKCE S256 dan OpenID Connect RS256/JWKS.
-- Exact redirect URI matching, authorization code sekali pakai, refresh-token rotation, reuse detection, dan revocation.
-- Halaman **Sesi aplikasi** menampilkan aplikasi yang masih memiliki grant SSO aktif, tanpa menampilkan access token atau refresh token.
-- Portal responsif berbasis shadcn/ui untuk profil, keamanan, aplikasi OAuth, consent, dan administrasi.
+PelajarNU Magetan ID bertindak sebagai **Identity Provider**. Identitas anggota,
+autentikasi, persetujuan akses, dan siklus token dikelola secara terpusat sehingga
+aplikasi terhubung tidak perlu membuat sistem akun dan login sendiri-sendiri.
 
-## Struktur konfigurasi
+Sistem menggunakan OAuth 2.0 Authorization Code dengan PKCE dan OpenID Connect.
+Aplikasi memperoleh identitas pengguna melalui klaim standar berbasis pasangan
+stabil `iss` dan `sub`, sedangkan role serta permission bisnis tetap dikelola oleh
+masing-masing aplikasi tujuan.
 
-Konfigurasi sengaja dipisahkan agar URL backend dan frontend tidak tertukar saat deployment:
+```mermaid
+flowchart LR
+    U[Anggota] --> P[Portal PelajarNU Magetan ID]
+    P --> I[Identity Provider]
+    A[Aplikasi terhubung] <-->|OAuth 2.0 / OpenID Connect| I
+    I --> D[(PostgreSQL)]
+    I --> E[Email OTP]
+    I --> T[Cloudflare Turnstile]
+```
 
-| Variabel | Lokasi | Fungsi |
+## Kemampuan utama
+
+- Registrasi anggota dengan verifikasi email menggunakan OTP enam digit.
+- Perlindungan registrasi menggunakan Cloudflare Turnstile dan validasi
+  server-side.
+- Login terpusat untuk seluruh aplikasi yang telah terdaftar.
+- OAuth 2.0 Authorization Code dengan PKCE S256.
+- OpenID Connect dengan discovery metadata, ID token RS256, JWKS, dan UserInfo.
+- Persetujuan scope per pengguna dan aplikasi.
+- Refresh-token rotation, reuse detection, revocation, dan authorization code
+  sekali pakai.
+- Manajemen aplikasi, redirect URI, client secret, assignment pengguna, serta
+  kebijakan akses aplikasi.
+- Dashboard profil, keamanan akun, sesi aplikasi, audit log, dan administrasi
+  pengguna.
+- Provisioning pengguna berbasis outbox untuk sinkronisasi assignment secara
+  asinkron dan idempotent.
+- Antrean email persisten dengan payload OTP terenkripsi dan retry exponential.
+
+## Alur autentikasi
+
+1. Pengguna membuka aplikasi yang terhubung.
+2. Aplikasi mengarahkan pengguna ke PelajarNU Magetan ID dengan parameter OAuth
+   dan PKCE.
+3. Identity Provider memverifikasi sesi, kebijakan assignment, scope, dan
+   persetujuan pengguna.
+4. Aplikasi menerima authorization code sekali pakai dan menukarnya dengan token
+   melalui backend.
+5. Aplikasi memvalidasi issuer, audience, signature, expiry, nonce, dan klaim
+   token sebelum membuat sesi lokal.
+
+## Peran dan akses
+
+| Peran | Tanggung jawab |
+| --- | --- |
+| `anggota` | Mengelola profil, keamanan, sesi, consent, dan aplikasi miliknya. |
+| `super_admin` | Mengelola pengguna, status akun, role internal, serta audit aktivitas platform. |
+
+Aplikasi dapat menggunakan policy `assigned_only` untuk membatasi akses kepada
+pengguna yang ditugaskan atau `all_active_users` untuk seluruh anggota aktif.
+Penonaktifan akun maupun pencabutan assignment langsung membatalkan grant dan
+token yang masih berlaku.
+
+## Arsitektur
+
+| Komponen | Teknologi | Fungsi |
 | --- | --- | --- |
-| `BACKEND_PUBLIC_URL` | `backend/.env` | URL publik API sekaligus issuer OAuth/OIDC |
-| `FRONTEND_PUBLIC_URL` | `backend/.env` | URL publik portal yang dipakai backend untuk redirect |
-| `BACKEND_CORS_ALLOWED_ORIGINS` | `backend/.env` | Daftar origin frontend yang boleh mengakses backend, dipisahkan koma |
-| `SESSION_COOKIE_NAME` | `backend/.env` | Nama cookie sesi HttpOnly backend |
-| `SESSION_COOKIE_DOMAIN` | `backend/.env` | Domain bersama cookie bila backend dan frontend memakai subdomain berbeda |
-| `NEXT_PUBLIC_BACKEND_URL` | `frontend/.env.local` | URL backend yang diakses browser |
-| `BACKEND_SESSION_COOKIE_NAME` | `frontend/.env.local` | Nama cookie sesi backend yang dibaca Next.js ketika server-render |
-| `CLIENT_SECRET_ENCRYPTION_KEY` | `backend/.env` | Kunci AES-256 untuk penyimpanan client secret yang dapat dilihat ulang |
-| `MAIL_QUEUE_MAX_ATTEMPTS` | `backend/.env` | Batas percobaan worker email OTP sebelum pekerjaan ditandai gagal |
-| `MAIL_QUEUE_CONCURRENCY` | `backend/.env` | Jumlah pekerjaan email OTP yang dapat diproses paralel |
-| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | `frontend/.env.local` | Sitekey publik widget Cloudflare Turnstile |
-| `TURNSTILE_SECRET_KEY` | `backend/.env` | Secret key Turnstile untuk validasi server-side Siteverify |
-| `TURNSTILE_ALLOWED_HOSTNAMES` | `backend/.env` | Hostname frontend yang boleh menghasilkan token registrasi |
+| Portal | Next.js, React, TypeScript, Tailwind CSS | Antarmuka akun, consent, dan administrasi. |
+| Identity API | Go, Gin, GORM | Autentikasi, OAuth/OIDC, kebijakan akses, dan worker asinkron. |
+| Database | PostgreSQL | Identitas, client, grant, token, audit, dan transactional outbox. |
+| Dokumentasi | Docusaurus | Referensi protokol dan panduan integrasi aplikasi. |
+| Operasional | Nginx dan systemd | Reverse proxy, TLS termination, serta pengelolaan service production. |
 
-Semua variabel `MAIL_*`, database, JWT, dan client secret hanya boleh berada di backend. Jangan menaruh rahasia pada variabel `NEXT_PUBLIC_*` karena nilainya dapat dibaca browser.
+## Keamanan
 
-Contoh development sudah tersedia di [`backend/.env.example`](backend/.env.example) dan [`frontend/.env.example`](frontend/.env.example).
+- Kata sandi disimpan dalam bentuk hash bcrypt dan dibatasi panjang inputnya.
+- Cookie sesi menggunakan `HttpOnly`, `Secure`, dan kebijakan `SameSite` yang
+  sesuai dengan arsitektur subdomain.
+- Client secret dan payload OTP sensitif disimpan menggunakan enkripsi AES-GCM.
+- Access token dan ID token ditandatangani dengan RSA serta dipublikasikan melalui
+  JWKS.
+- Redirect URI harus cocok secara persis dan seluruh client wajib memakai PKCE
+  S256.
+- Turnstile diverifikasi oleh backend dengan pembatasan hostname dan action.
+- Audit log mencatat aktivitas autentikasi, administrasi, consent, dan grant.
+- Credential production hanya disimpan pada environment server dan tidak menjadi
+  bagian repository.
 
-## Cloudflare Turnstile
+## Layanan resmi
 
-Form registrasi memakai Turnstile dengan render eksplisit, skeleton selama widget dimuat, dan validasi server-side wajib. Untuk production:
+| Layanan | Alamat |
+| --- | --- |
+| Portal identitas | [pelajarnumagetan.id](https://pelajarnumagetan.id) |
+| Identity API | [api.pelajarnumagetan.id](https://api.pelajarnumagetan.id) |
+| Dokumentasi | [doc.pelajarnumagetan.id](https://doc.pelajarnumagetan.id) |
+| Short URL | [s.pelajarnumagetan.or.id](https://s.pelajarnumagetan.or.id) |
 
-1. Buka **Cloudflare Dashboard → Turnstile → Add widget**.
-2. Beri nama misalnya `PelajarNU Register`, tambahkan hostname `pelajarnumagetan.id`, lalu pilih mode **Managed**.
-3. Salin sitekey ke `NEXT_PUBLIC_TURNSTILE_SITE_KEY` frontend.
-4. Simpan secret key hanya sebagai `TURNSTILE_SECRET_KEY` backend.
-5. Isi `TURNSTILE_ALLOWED_HOSTNAMES=pelajarnumagetan.id`, lalu restart frontend dan backend.
+## Status dan versi
 
-Development lokal sudah memakai pasangan test key resmi Cloudflare dari file contoh. Jangan izinkan `localhost` pada widget production dan jangan pernah menaruh secret key pada variabel `NEXT_PUBLIC_*` atau repository.
+PelajarNU Magetan ID telah digunakan sebagai layanan production. Proyek mengikuti
+[Semantic Versioning](https://semver.org/lang/id/), dengan riwayat perubahan di
+[`CHANGELOG.md`](CHANGELOG.md) dan artefak versi pada halaman
+[GitHub Releases](https://github.com/Inur123/sso-fixed-ipnuippnu/releases).
 
-Untuk OpenID Connect, development dapat membuat RSA key sementara saat backend dimulai. Production wajib mengisi `OIDC_PRIVATE_KEY_PATH` dengan path private key RSA persisten; public key diterbitkan melalui `/oauth/jwks`. Pisahkan pula `OTP_HASH_SECRET` dari `JWT_SECRET`, dan simpan `CLIENT_SECRET_ENCRYPTION_KEY` 32-byte di secret manager.
+Versi terbaru: **v2.0.0**.
 
-## Menjalankan tanpa Docker
+## Organisasi
 
-Prasyarat: Go sesuai versi pada `backend/go.mod`, Node.js yang didukung Next.js 16, dan PostgreSQL lokal.
-
-1. Buat database:
-
-   ```bash
-   createdb ipnu_ippnu_id_sso
-   ```
-
-2. Siapkan dan jalankan backend:
-
-   ```bash
-   cd backend
-   cp .env.example .env
-   # Sesuaikan koneksi PostgreSQL, JWT_SECRET, SUPER_ADMIN_EMAIL, dan SMTP.
-   go run .
-   ```
-
-3. Pada terminal lain, siapkan dan jalankan frontend:
-
-   ```bash
-   cd frontend
-   cp .env.example .env.local
-   npm install
-   npm run dev
-   ```
-
-Portal tersedia di `http://localhost:3000`, sedangkan backend dan issuer berada di `http://localhost:8080`.
-
-## Alur akun dan super admin
-
-1. Registrasi publik selalu membuat role `anggota` dengan status aktif.
-2. Sistem mengirim OTP ke email pengguna. Pengguna belum dapat login sebelum OTP valid diverifikasi.
-3. Super admin dapat menonaktifkan akun dari **Dashboard → Pengguna**. Penonaktifan langsung mencabut sesi browser, authorization code, dan token OAuth pengguna tersebut.
-4. Untuk super admin pertama, isi `SUPER_ADMIN_EMAIL`, lalu registrasikan dan verifikasi alamat tersebut. Transaksi verifikasi OTP langsung mempromosikan akun yang cocok menjadi `super_admin`; bootstrap saat backend dimulai juga memperbaiki role akun lama yang sudah terverifikasi.
-
-SMTP Gmail memerlukan App Password, bukan password akun utama. Untuk production, gunakan kredensial khusus aplikasi dan rotasikan segera jika pernah terekspos.
-
-## Integrasi aplikasi SSO
-
-Setiap anggota terverifikasi dapat mendaftarkan aplikasi miliknya melalui **Dashboard → Aplikasi**. Setiap client memperoleh secret acak yang berbeda. Portal menyimpannya terenkripsi agar pemilik dapat melihat ulang; tombol regenerate mengganti secret sekaligus mencabut token dan authorization code lama. Semua client wajib menggunakan PKCE S256 dan menjaga `client_secret` di server aplikasi.
-
-Endpoint discovery dan protokol:
-
-- OAuth metadata: `/.well-known/oauth-authorization-server`
-- OpenID configuration: `/.well-known/openid-configuration`
-- Authorization: `/oauth/authorize`
-- Token: `/oauth/token`
-- Revocation: `/oauth/revoke`
-- JSON Web Key Set: `/oauth/jwks`
-- UserInfo: `/v1/user/me`
-
-Request authorization wajib memakai `response_type=code`, `state`, exact `redirect_uri`, dan PKCE `S256`. Gunakan `nonce` saat meminta scope `openid`. Persetujuan scope disimpan per pengguna dan aplikasi sehingga tidak diminta lagi pada login berikutnya, kecuali scope bertambah, RP meminta `prompt=consent`, atau pengguna mencabut akses. Sesi aplikasi di portal menampilkan satu baris per aplikasi yang masih memiliki grant aktif, bukan daftar browser atau perangkat. Tombol **Cabut akses** menghentikan seluruh token/grant aplikasi itu di Identity Provider; sesi lokal yang sudah dibuat aplikasi klien baru berakhir bila aplikasi tersebut juga mengimplementasikan logout sendiri atau OIDC front/back-channel logout.
-
-Setiap aplikasi dapat memakai policy `assigned_only` (default aman) atau `all_active_users`. Pada policy terbatas, pemilik aplikasi menambahkan pengguna berdasarkan UUID atau email secara persis. Halaman detail aplikasi memisahkan informasi umum client dari daftar pengguna yang ditugaskan dan memuat daftar tersebut secara terpaginasikan. Pemeriksaan dilakukan saat authorization, pertukaran code/refresh, dan UserInfo; pencabutan assignment langsung mencabut grant lama.
-
-Role `super_admin` dan `anggota` adalah otoritas internal platform dan tidak dibagikan ke relying party. Role serta permission bisnis dikelola sendiri oleh aplikasi tujuan dengan identitas stabil `(iss, sub)`.
-
-Client `assigned_only` dapat mengaktifkan provisioning outbox opsional agar
-aplikasi tujuan menerima `user.assigned`, `user.updated`, dan `user.unassigned`
-sebelum atau tanpa login pertama. Penulisan event atomik dengan assignment,
-sedangkan delivery HMAC berjalan asinkron, idempotent, memakai retry exponential,
-timer dinamis, serta worker terbatas. Ini bukan SCIM; kontrak dan verifikasi
-penerima dijelaskan pada dokumentasi **Provisioning pengguna realtime**.
-
-Panduan integrasi lengkap tersedia sebagai situs Docusaurus terpisah di folder [`documentation`](documentation/README.md). Untuk menjalankannya secara lokal:
-
-```bash
-cd documentation
-npm install
-npm run start
-```
-
-Dokumentasi akan tersedia di `http://localhost:3001` dan memuat quickstart, Authorization Code + PKCE, validasi ID token/JWKS, contoh integrasi framework, revocation, serta checklist produksi.
-
-## Versi dan kontribusi
-
-Proyek menggunakan [Semantic Versioning](https://semver.org/lang/id/) dan
-[Conventional Commits](https://www.conventionalcommits.org/). Versi aktif dapat
-dilihat di [`VERSION`](VERSION), sedangkan perubahan setiap rilis dicatat di
-[`CHANGELOG.md`](CHANGELOG.md). Alur branch, pemeriksaan pull request, dan proses
-rilis dijelaskan di [`CONTRIBUTING.md`](CONTRIBUTING.md).
-
-## Checklist production
-
-- Set `APP_ENV=production`.
-- Gunakan HTTPS untuk `BACKEND_PUBLIC_URL` dan `FRONTEND_PUBLIC_URL`.
-- Gunakan `JWT_SECRET` acak minimal 32 karakter dan kredensial database khusus aplikasi.
-- Gunakan `OTP_HASH_SECRET` yang berbeda dan private key RSA persisten lewat `OIDC_PRIVATE_KEY_PATH`.
-- Gunakan `CLIENT_SECRET_ENCRYPTION_KEY` base64 32-byte yang berbeda dan simpan di secret manager.
-- Gunakan sitekey/secret Turnstile production milik sendiri, batasi widget ke `pelajarnumagetan.id`, dan jangan memakai test key Cloudflare.
-- Set `DB_SSLMODE=verify-full` (atau `verify-ca` jika keterbatasan penyedia sudah dipahami).
-- Batasi `BACKEND_CORS_ALLOWED_ORIGINS` hanya ke domain frontend resmi.
-- Samakan `SESSION_COOKIE_NAME` dengan `BACKEND_SESSION_COOKIE_NAME`. Jika frontend dan backend berbeda subdomain, isi `SESSION_COOKIE_DOMAIN` dengan parent domain yang menaungi keduanya.
-- Simpan file `.env` di server/secret manager dan jangan commit ke Git.
-- Pastikan SMTP menggunakan App Password yang masih valid.
-- Atur pool PostgreSQL (`DB_MAX_OPEN_CONNS`, `DB_MAX_IDLE_CONNS`, lifetime) sesuai batas penyedia database.
-- Jika memakai reverse proxy, isi `BACKEND_TRUSTED_PROXIES` hanya dengan IP/CIDR proxy tersebut; jangan percaya seluruh internet.
-- Untuk provisioning, gunakan URL HTTPS, secret unik per aplikasi, dan pantau event `dead` melalui endpoint admin.
-- Gunakan `/health` sebagai liveness dan `/ready` sebagai readiness database.
-
-## Validasi
-
-```bash
-cd backend
-go test ./...
-go vet ./...
-
-cd ../frontend
-npm run lint
-npx tsc --noEmit
-npm run build
-
-cd ../documentation
-npm run typecheck
-npm run build
-```
+PelajarNU Magetan ID dikembangkan untuk mendukung layanan digital resmi
+**PC IPNU IPPNU Kabupaten Magetan**.

@@ -53,7 +53,7 @@ npm run typecheck
 ## Rilis
 
 - Versi proyek disimpan di `VERSION` dan dicatat di `CHANGELOG.md`.
-- Tag rilis menggunakan format `vMAJOR.MINOR.PATCH`, misalnya `v0.1.0`.
+- Tag rilis menggunakan format `vMAJOR.MINOR.PATCH`, misalnya `v2.0.0`.
 - Rilis production hanya dibuat dari commit yang sudah berada di `main`.
 - Perbarui bagian `Unreleased`, versi package terkait, dan catatan perubahan
   sebelum membuat tag.
