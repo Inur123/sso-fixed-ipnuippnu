@@ -107,7 +107,6 @@ token yang masih berlaku.
 | Portal identitas | [pelajarnumagetan.id](https://pelajarnumagetan.id) |
 | Identity API | [api.pelajarnumagetan.id](https://api.pelajarnumagetan.id) |
 | Dokumentasi | [doc.pelajarnumagetan.id](https://doc.pelajarnumagetan.id) |
-| Short URL | [s.pelajarnumagetan.or.id](https://s.pelajarnumagetan.or.id) |
 
 ## Status dan versi
 
