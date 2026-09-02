@@ -33,6 +33,7 @@ function VerifyEmailForm() {
   const otpRef = useRef<HTMLInputElement>(null);
   const normalizedEmail = email.trim().toLowerCase();
   const deliveryFailed = searchParams.get("delivery") === "failed";
+  const deliveryQueued = searchParams.get("delivery") === "queued";
   const resendIn =
     now > 0 ? Math.max(0, Math.ceil((resendDeadline - now) / 1000)) : 0;
 
@@ -109,10 +110,13 @@ function VerifyEmailForm() {
           <MailCheck className="size-5" />
         </span>
         <div className="space-y-1">
-          <p className="text-sm font-medium">Periksa kotak masuk email</p>
+          <p className="text-sm font-medium">
+            {deliveryQueued ? "Kode verifikasi sedang diproses" : "Periksa kotak masuk email"}
+          </p>
           <p className="text-xs leading-5 text-muted-foreground">
-            Masukkan kode OTP dari IPNU IPPNU ID. Kode hanya dapat digunakan
-            satu kali dan memiliki batas waktu.
+            {deliveryQueued
+              ? "Pengiriman berjalan di latar belakang dan biasanya tiba dalam beberapa detik. Periksa juga folder spam."
+              : "Masukkan kode OTP dari PelajarNU Magetan ID. Kode hanya dapat digunakan satu kali dan memiliki batas waktu."}
           </p>
         </div>
       </div>
@@ -200,7 +204,10 @@ export default function VerifyEmailPage() {
   return (
     <AuthShell
       title="Verifikasi email"
-      description="Selesaikan aktivasi email sebelum masuk ke layanan IPNU IPPNU ID."
+      description="Selesaikan aktivasi email sebelum masuk ke layanan PelajarNU Magetan ID."
+      panelBadge="Aktivasi akun"
+      panelTitle="Satu langkah lagi untuk mulai terhubung."
+      panelDescription="Masukkan kode OTP yang dikirim secara aman ke email Anda untuk mengaktifkan identitas PelajarNU Magetan ID."
     >
       <Suspense
         fallback={

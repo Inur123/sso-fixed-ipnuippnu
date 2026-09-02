@@ -91,7 +91,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
       </Sidebar>
       <SidebarInset>
         <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-background/90 px-4 backdrop-blur-xl sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3"><SidebarTrigger /><div className="hidden h-5 w-px bg-border sm:block" /><p className="hidden text-sm text-muted-foreground sm:block">Pusat kendali IPNU IPPNU ID</p></div>
+          <div className="flex items-center gap-3"><SidebarTrigger /><div className="hidden h-5 w-px bg-border sm:block" /><p className="hidden text-sm text-muted-foreground sm:block">Pusat kendali PelajarNU Magetan ID</p></div>
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

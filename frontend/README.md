@@ -1,4 +1,4 @@
-# Portal IPNU IPPNU ID
+# Portal PelajarNU Magetan ID
 
 Portal Next.js 16 berbasis App Router, TypeScript, Tailwind CSS 4, dan komponen shadcn/ui dengan preset Radix Nova.
 

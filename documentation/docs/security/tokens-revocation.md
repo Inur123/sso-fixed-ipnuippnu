@@ -73,7 +73,7 @@ RP harus memperlakukan HTTP `401 invalid_token` dari UserInfo sebagai sinyal unt
 ## Grant SSO bukan sesi lokal RP
 
 :::warning Penting
-Mencabut grant di IPNU IPPNU ID **tidak otomatis menghapus cookie/session aplikasi RP**. Sebaliknya, logout dari RP juga tidak otomatis logout dari portal IdP. Saat ini belum ada `sid`, front-channel logout, atau back-channel logout.
+Mencabut grant di PelajarNU Magetan ID **tidak otomatis menghapus cookie/session aplikasi RP**. Sebaliknya, logout dari RP juga tidak otomatis logout dari portal IdP. Saat ini belum ada `sid`, front-channel logout, atau back-channel logout.
 :::
 
 Karena itu RP bertanggung jawab atas sesi lokalnya sendiri. Jangan membuat sesi lokal tanpa batas hanya karena ID token pernah valid. Terapkan absolute lifetime, revalidasi berkala yang proporsional dengan risiko, dan hentikan sesi ketika API issuer menolak token.

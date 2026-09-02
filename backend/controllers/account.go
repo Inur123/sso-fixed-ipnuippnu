@@ -11,7 +11,7 @@ func accountAccessError(user *models.User) (int, string, string, bool) {
 		return http.StatusUnauthorized, "unauthorized", "Login diperlukan.", true
 	}
 	if !user.IsActive {
-		return http.StatusForbidden, "account_inactive", "Akun Anda dinonaktifkan. Hubungi super admin IPNU IPPNU ID.", true
+		return http.StatusForbidden, "account_inactive", "Akun Anda dinonaktifkan. Hubungi super admin PelajarNU Magetan ID.", true
 	}
 	if user.EmailVerifiedAt == nil {
 		return http.StatusForbidden, "email_unverified", "Email belum diverifikasi. Masukkan OTP yang dikirim ke email Anda.", true

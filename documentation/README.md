@@ -1,4 +1,4 @@
-# Dokumentasi IPNU IPPNU ID
+# Dokumentasi PelajarNU Magetan ID
 
 Situs dokumentasi integrasi SSO yang berdiri sendiri, dibangun dengan Docusaurus 3.10.2 dalam mode docs-only.
 

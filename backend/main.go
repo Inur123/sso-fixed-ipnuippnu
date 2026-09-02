@@ -16,6 +16,7 @@ import (
 	"github.com/joho/godotenv"
 	"sso-backend/controllers"
 	"sso-backend/database"
+	"sso-backend/mailqueue"
 	"sso-backend/provisioning"
 	"sso-backend/utils"
 )
@@ -98,7 +99,13 @@ func main() {
 	if err := utils.ValidateOIDCConfiguration(); err != nil {
 		log.Fatal(err)
 	}
+	if err := utils.ValidateTurnstileConfiguration(); err != nil {
+		log.Fatal(err)
+	}
 	if err := provisioning.Configure(); err != nil {
+		log.Fatal(err)
+	}
+	if err := mailqueue.Configure(); err != nil {
 		log.Fatal(err)
 	}
 	utils.InitR2Client()
@@ -129,6 +136,7 @@ func main() {
 		log.Fatal(err)
 	}
 	provisioning.Start(appCtx, database.DB)
+	mailqueue.Start(appCtx, database.DB)
 
 	r := gin.Default()
 	if err := r.SetTrustedProxies(trustedProxies); err != nil {

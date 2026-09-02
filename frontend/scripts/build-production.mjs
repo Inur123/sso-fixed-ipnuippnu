@@ -55,12 +55,31 @@ const requiredPublicVariables = [
   "NEXT_PUBLIC_APP_TAGLINE",
   "NEXT_PUBLIC_APP_DESCRIPTION",
   "NEXT_PUBLIC_ORGANIZATION_NAME",
+  "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
 ];
 
 for (const name of requiredPublicVariables) {
   if (!productionEnvironment[name]?.trim()) {
     throw new Error(`${name} wajib diatur di .env.production.`);
   }
+}
+
+const productionTurnstileSiteKey =
+  productionEnvironment.NEXT_PUBLIC_TURNSTILE_SITE_KEY.trim();
+const turnstileTestSiteKeys = new Set([
+  "1x00000000000000000000AA",
+  "2x00000000000000000000AB",
+  "1x00000000000000000000BB",
+  "2x00000000000000000000BB",
+  "3x00000000000000000000FF",
+]);
+if (
+  productionTurnstileSiteKey.startsWith("replace-") ||
+  turnstileTestSiteKeys.has(productionTurnstileSiteKey)
+) {
+  throw new Error(
+    "NEXT_PUBLIC_TURNSTILE_SITE_KEY production wajib memakai sitekey widget Cloudflare milik sendiri.",
+  );
 }
 
 const backendUrl = requireHttpsUrl(

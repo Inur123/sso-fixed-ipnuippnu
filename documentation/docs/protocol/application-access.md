@@ -5,7 +5,7 @@ description: Memisahkan login SSO, izin masuk aplikasi, dan otorisasi bisnis apl
 
 # Akses per aplikasi
 
-Berhasil masuk ke IPNU IPPNU ID belum berarti pengguna boleh memakai semua aplikasi. OIDC membuktikan **siapa pengguna**, sedangkan kebijakan aplikasi menentukan **apakah pengguna boleh masuk** dan **apa yang boleh dilakukan**.
+Berhasil masuk ke PelajarNU Magetan ID belum berarti pengguna boleh memakai semua aplikasi. OIDC membuktikan **siapa pengguna**, sedangkan kebijakan aplikasi menentukan **apakah pengguna boleh masuk** dan **apa yang boleh dilakukan**.
 
 Gunakan tiga lapisan yang terpisah:
 
@@ -15,7 +15,7 @@ Gunakan tiga lapisan yang terpisah:
 | Assignment aplikasi | Boleh masuk ke aplikasi mana? | Semua akun aktif atau hanya pengguna yang ditugaskan |
 | Otorisasi aplikasi | Apa yang boleh dilakukan di aplikasi itu? | Dikelola pada database dan API aplikasi tujuan |
 
-Role platform `super_admin` dan `anggota` hanya berlaku untuk portal IPNU IPPNU ID. Role tersebut tidak otomatis menjadi kewenangan di aplikasi lain.
+Role platform `super_admin` dan `anggota` hanya berlaku untuk portal PelajarNU Magetan ID. Role tersebut tidak otomatis menjadi kewenangan di aplikasi lain.
 
 ## Kebijakan akses client
 

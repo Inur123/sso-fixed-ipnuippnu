@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { KeyRound, LockKeyhole, Save, ShieldAlert } from "lucide-react";
+import { Circle, KeyRound, LockKeyhole, Save, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -19,6 +19,7 @@ export default function KeamananPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [saving, setSaving] = useState(false);
+  const hasMinimumNewPasswordLength = newPassword.length >= 8;
 
   async function changePassword(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -47,7 +48,16 @@ export default function KeamananPage() {
           <CardContent>
             <form className="space-y-4" onSubmit={changePassword}>
               <div className="space-y-2"><Label htmlFor="current-password">Kata sandi saat ini</Label><PasswordInput id="current-password" autoComplete="current-password" value={currentPassword} onChange={(event) => setCurrentPassword(event.target.value)} required /></div>
-              <div className="space-y-2"><Label htmlFor="new-password">Kata sandi baru</Label><PasswordInput id="new-password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={8} maxLength={72} required /></div>
+              <div className="space-y-2">
+                <Label htmlFor="new-password">Kata sandi baru</Label>
+                <PasswordInput id="new-password" autoComplete="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} minLength={8} maxLength={72} required />
+                {newPassword.length > 0 && !hasMinimumNewPasswordLength && (
+                  <div className="flex items-start gap-2 text-xs leading-5 text-muted-foreground" role="status" aria-live="polite">
+                    <Circle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+                    <p>Gunakan minimal 8 karakter</p>
+                  </div>
+                )}
+              </div>
               <div className="space-y-2"><Label htmlFor="confirm-password">Ulangi kata sandi baru</Label><PasswordInput id="confirm-password" autoComplete="new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength={8} maxLength={72} required /></div>
               <Button className="w-full sm:w-auto" disabled={saving}>{saving ? <Spinner /> : <Save />}{saving ? "Memperbarui..." : "Perbarui kata sandi"}</Button>
             </form>

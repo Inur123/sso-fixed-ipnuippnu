@@ -173,7 +173,7 @@ export default function AuditLogPage() {
     <div className="min-w-0 space-y-7">
       <PageHeader
         title="Audit log"
-        description="Telusuri aktivitas keamanan dan perubahan administratif pada IPNU IPPNU ID."
+        description="Telusuri aktivitas keamanan dan perubahan administratif pada PelajarNU Magetan ID."
       />
 
       <Card className="min-w-0 overflow-hidden">

@@ -65,7 +65,7 @@ func Connect() {
 	log.Printf("connected to PostgreSQL database %q", currentDatabase)
 
 	// AutoMigrate hanya untuk pengembangan awal. Produksi sebaiknya memakai migrasi terversi.
-	err = DB.AutoMigrate(&models.User{}, &models.EmailVerificationOTP{}, &models.Session{}, &models.OAuthClient{}, &models.OAuthClientAssignment{}, &models.OAuthConsent{}, &models.OAuthAuthCode{}, &models.OAuthToken{}, &models.AuditLog{}, &models.ProvisioningOutbox{})
+	err = DB.AutoMigrate(&models.User{}, &models.EmailVerificationOTP{}, &models.VerificationEmailOutbox{}, &models.Session{}, &models.OAuthClient{}, &models.OAuthClientAssignment{}, &models.OAuthConsent{}, &models.OAuthAuthCode{}, &models.OAuthToken{}, &models.AuditLog{}, &models.ProvisioningOutbox{})
 	if err != nil {
 		log.Fatal("Failed to migrate:", err)
 	}

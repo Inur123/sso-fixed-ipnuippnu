@@ -1,4 +1,7 @@
-# IPNU IPPNU Magetan ID
+# PelajarNU Magetan ID
+
+[![CI](https://github.com/Inur123/sso-fixed-ipnuippnu/actions/workflows/ci.yml/badge.svg)](https://github.com/Inur123/sso-fixed-ipnuippnu/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Inur123/sso-fixed-ipnuippnu?display_name=tag)](https://github.com/Inur123/sso-fixed-ipnuippnu/releases)
 
 Pusat identitas dan Single Sign-On resmi PC IPNU IPPNU Kabupaten Magetan.
 
@@ -6,7 +9,7 @@ Identity Provider terpusat untuk ekosistem aplikasi IPNU dan IPPNU. Backend meng
 
 ## Fitur utama
 
-- Registrasi anggota dengan akun langsung aktif dan verifikasi email menggunakan OTP enam digit.
+- Registrasi anggota dengan akun langsung aktif dan verifikasi email menggunakan OTP enam digit. Pengiriman email memakai transactional outbox persisten, ciphertext AES-GCM, worker background, serta retry exponential agar request registrasi tidak menunggu SMTP.
 - Login menolak akun yang belum memverifikasi email atau dinonaktifkan super admin.
 - Dua role sistem: `super_admin` dan `anggota`.
 - Manajemen pengguna untuk super admin: pencarian, pagination, perubahan role, aktivasi/nonaktivasi, serta penghapusan akun permanen.
@@ -31,10 +34,27 @@ Konfigurasi sengaja dipisahkan agar URL backend dan frontend tidak tertukar saat
 | `NEXT_PUBLIC_BACKEND_URL` | `frontend/.env.local` | URL backend yang diakses browser |
 | `BACKEND_SESSION_COOKIE_NAME` | `frontend/.env.local` | Nama cookie sesi backend yang dibaca Next.js ketika server-render |
 | `CLIENT_SECRET_ENCRYPTION_KEY` | `backend/.env` | Kunci AES-256 untuk penyimpanan client secret yang dapat dilihat ulang |
+| `MAIL_QUEUE_MAX_ATTEMPTS` | `backend/.env` | Batas percobaan worker email OTP sebelum pekerjaan ditandai gagal |
+| `MAIL_QUEUE_CONCURRENCY` | `backend/.env` | Jumlah pekerjaan email OTP yang dapat diproses paralel |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | `frontend/.env.local` | Sitekey publik widget Cloudflare Turnstile |
+| `TURNSTILE_SECRET_KEY` | `backend/.env` | Secret key Turnstile untuk validasi server-side Siteverify |
+| `TURNSTILE_ALLOWED_HOSTNAMES` | `backend/.env` | Hostname frontend yang boleh menghasilkan token registrasi |
 
 Semua variabel `MAIL_*`, database, JWT, dan client secret hanya boleh berada di backend. Jangan menaruh rahasia pada variabel `NEXT_PUBLIC_*` karena nilainya dapat dibaca browser.
 
 Contoh development sudah tersedia di [`backend/.env.example`](backend/.env.example) dan [`frontend/.env.example`](frontend/.env.example).
+
+## Cloudflare Turnstile
+
+Form registrasi memakai Turnstile dengan render eksplisit, skeleton selama widget dimuat, dan validasi server-side wajib. Untuk production:
+
+1. Buka **Cloudflare Dashboard → Turnstile → Add widget**.
+2. Beri nama misalnya `PelajarNU Register`, tambahkan hostname `pelajarnumagetan.id`, lalu pilih mode **Managed**.
+3. Salin sitekey ke `NEXT_PUBLIC_TURNSTILE_SITE_KEY` frontend.
+4. Simpan secret key hanya sebagai `TURNSTILE_SECRET_KEY` backend.
+5. Isi `TURNSTILE_ALLOWED_HOSTNAMES=pelajarnumagetan.id`, lalu restart frontend dan backend.
+
+Development lokal sudah memakai pasangan test key resmi Cloudflare dari file contoh. Jangan izinkan `localhost` pada widget production dan jangan pernah menaruh secret key pada variabel `NEXT_PUBLIC_*` atau repository.
 
 Untuk OpenID Connect, development dapat membuat RSA key sementara saat backend dimulai. Production wajib mengisi `OIDC_PRIVATE_KEY_PATH` dengan path private key RSA persisten; public key diterbitkan melalui `/oauth/jwks`. Pisahkan pula `OTP_HASH_SECRET` dari `JWT_SECRET`, dan simpan `CLIENT_SECRET_ENCRYPTION_KEY` 32-byte di secret manager.
 
@@ -114,6 +134,14 @@ npm run start
 
 Dokumentasi akan tersedia di `http://localhost:3001` dan memuat quickstart, Authorization Code + PKCE, validasi ID token/JWKS, contoh integrasi framework, revocation, serta checklist produksi.
 
+## Versi dan kontribusi
+
+Proyek menggunakan [Semantic Versioning](https://semver.org/lang/id/) dan
+[Conventional Commits](https://www.conventionalcommits.org/). Versi aktif dapat
+dilihat di [`VERSION`](VERSION), sedangkan perubahan setiap rilis dicatat di
+[`CHANGELOG.md`](CHANGELOG.md). Alur branch, pemeriksaan pull request, dan proses
+rilis dijelaskan di [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
 ## Checklist production
 
 - Set `APP_ENV=production`.
@@ -121,6 +149,7 @@ Dokumentasi akan tersedia di `http://localhost:3001` dan memuat quickstart, Auth
 - Gunakan `JWT_SECRET` acak minimal 32 karakter dan kredensial database khusus aplikasi.
 - Gunakan `OTP_HASH_SECRET` yang berbeda dan private key RSA persisten lewat `OIDC_PRIVATE_KEY_PATH`.
 - Gunakan `CLIENT_SECRET_ENCRYPTION_KEY` base64 32-byte yang berbeda dan simpan di secret manager.
+- Gunakan sitekey/secret Turnstile production milik sendiri, batasi widget ke `pelajarnumagetan.id`, dan jangan memakai test key Cloudflare.
 - Set `DB_SSLMODE=verify-full` (atau `verify-ca` jika keterbatasan penyedia sudah dipahami).
 - Batasi `BACKEND_CORS_ALLOWED_ORIGINS` hanya ke domain frontend resmi.
 - Samakan `SESSION_COOKIE_NAME` dengan `BACKEND_SESSION_COOKIE_NAME`. Jika frontend dan backend berbeda subdomain, isi `SESSION_COOKIE_DOMAIN` dengan parent domain yang menaungi keduanya.

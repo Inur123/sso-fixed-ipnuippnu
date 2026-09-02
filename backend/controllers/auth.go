@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"sso-backend/database"
+	"sso-backend/mailqueue"
 	"sso-backend/models"
 	"sso-backend/utils"
 )
@@ -29,15 +30,31 @@ const (
 var errEmailAlreadyExists = errors.New("email already exists")
 
 type RegisterRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8,max=72"`
-	Name     string `json:"name" binding:"required,min=2,max=120"`
+	Email          string `json:"email" binding:"required,email"`
+	Password       string `json:"password" binding:"required,min=8,max=72"`
+	Name           string `json:"name" binding:"required,min=2,max=120"`
+	TurnstileToken string `json:"turnstile_token" binding:"required,max=2048"`
 }
 
 func Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, "invalid_request", "Nama, email, dan kata sandi minimal 8 karakter wajib diisi.")
+		respondError(c, http.StatusBadRequest, "invalid_request", "Nama, email, kata sandi minimal 8 karakter, dan verifikasi keamanan wajib diisi.")
+		return
+	}
+	turnstileValid, err := utils.VerifyTurnstile(
+		c.Request.Context(),
+		req.TurnstileToken,
+		c.ClientIP(),
+		"register",
+	)
+	if err != nil {
+		log.Printf("Turnstile verification unavailable: %v", err)
+		respondError(c, http.StatusServiceUnavailable, "turnstile_unavailable", "Verifikasi keamanan sedang tidak tersedia. Silakan coba lagi.")
+		return
+	}
+	if !turnstileValid {
+		respondError(c, http.StatusForbidden, "turnstile_failed", "Verifikasi keamanan gagal atau kedaluwarsa. Silakan coba lagi.")
 		return
 	}
 
@@ -56,6 +73,7 @@ func Register(c *gin.Context) {
 	}
 	otpLifetime := emailOTPLifetime()
 	var otpCode, otpHash string
+	var otpExpiresAt time.Time
 	err = database.DB.Transaction(func(tx *gorm.DB) error {
 		var count int64
 		if err := tx.Model(&models.User{}).Where("LOWER(email) = ?", user.Email).Count(&count).Error; err != nil {
@@ -68,11 +86,14 @@ func Register(c *gin.Context) {
 			return err
 		}
 		var prepared bool
-		otpCode, otpHash, prepared, err = prepareEmailOTP(tx, &user, false, otpLifetime)
+		otpCode, otpHash, otpExpiresAt, prepared, err = prepareEmailOTP(tx, &user, false, otpLifetime)
 		if !prepared && err == nil {
 			return errors.New("verification OTP was not prepared")
 		}
-		return err
+		if err != nil {
+			return err
+		}
+		return mailqueue.Enqueue(tx, user, otpCode, otpHash, otpExpiresAt)
 	})
 	if err != nil {
 		switch {
@@ -91,22 +112,15 @@ func Register(c *gin.Context) {
 		return
 	}
 
-	emailSent := true
-	if err := utils.SendVerificationEmail(user.Email, user.Name, otpCode, otpLifetime); err != nil {
-		emailSent = false
-		clearUndeliveredEmailOTP(user.ID, otpHash)
-		log.Printf("registration verification email failed for %s: %v", user.Email, err)
-	}
+	mailqueue.Notify()
 	user.RefreshComputedFields()
-	message := "Akun IPNU IPPNU ID berhasil dibuat. Masukkan OTP yang dikirim ke email Anda."
-	if !emailSent {
-		message = "Akun berhasil dibuat, tetapi email OTP belum terkirim. Gunakan tombol kirim ulang OTP."
-	}
+	message := "Akun PelajarNU Magetan ID berhasil dibuat. Kode verifikasi sedang dikirim ke email Anda."
 	auditWithActor(c, &user.ID, AuditUserRegister, "user", user.ID, "Akun baru terdaftar.")
 	c.JSON(http.StatusCreated, gin.H{
-		"message":                 message,
-		"verification_email_sent": emailSent,
-		"user":                    user,
+		"message":                   message,
+		"verification_email_queued": true,
+		"verification_email_sent":   false,
+		"user":                      user,
 	})
 }
 
@@ -205,7 +219,7 @@ func VerifyEmail(c *gin.Context) {
 	if user.Role == models.RoleSuperAdmin && utils.IsConfiguredSuperAdminEmail(user.Email) {
 		auditWithActor(c, &user.ID, AuditUserRoleUpdate, "user", user.ID, "Akun terverifikasi dipromosikan menjadi super admin sesuai konfigurasi server.")
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "Email berhasil diverifikasi. Anda sekarang dapat masuk ke IPNU IPPNU ID.", "user": user})
+	c.JSON(http.StatusOK, gin.H{"message": "Email berhasil diverifikasi. Anda sekarang dapat masuk ke PelajarNU Magetan ID.", "user": user})
 }
 
 type ResendVerificationRequest struct {
@@ -224,6 +238,7 @@ func ResendVerification(c *gin.Context) {
 	message := "Jika akun terdaftar, aktif, dan belum terverifikasi, OTP baru akan dikirim ke email tersebut."
 	var user models.User
 	var otpCode, otpHash string
+	var otpExpiresAt time.Time
 	var shouldSend bool
 	otpLifetime := emailOTPLifetime()
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
@@ -237,44 +252,45 @@ func ResendVerification(c *gin.Context) {
 			return nil
 		}
 		var err error
-		otpCode, otpHash, shouldSend, err = prepareEmailOTP(tx, &user, true, otpLifetime)
-		return err
+		otpCode, otpHash, otpExpiresAt, shouldSend, err = prepareEmailOTP(tx, &user, true, otpLifetime)
+		if err != nil || !shouldSend {
+			return err
+		}
+		return mailqueue.Enqueue(tx, user, otpCode, otpHash, otpExpiresAt)
 	})
 	if err != nil {
 		log.Printf("prepare resend verification email failed for %s: %v", normalizeEmail(req.Email), err)
 	} else if shouldSend {
-		if err := utils.SendVerificationEmail(user.Email, user.Name, otpCode, otpLifetime); err != nil {
-			clearUndeliveredEmailOTP(user.ID, otpHash)
-			log.Printf("resend verification email failed for %s: %v", normalizeEmail(req.Email), err)
-		}
+		mailqueue.Notify()
 	}
 	c.JSON(http.StatusOK, gin.H{"message": message})
 }
 
-func prepareEmailOTP(tx *gorm.DB, user *models.User, enforceCooldown bool, lifetime time.Duration) (string, string, bool, error) {
+func prepareEmailOTP(tx *gorm.DB, user *models.User, enforceCooldown bool, lifetime time.Duration) (string, string, time.Time, bool, error) {
 	var existing models.EmailVerificationOTP
 	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ?", user.ID).First(&existing).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
-		return "", "", false, err
+		return "", "", time.Time{}, false, err
 	}
 	now := time.Now().UTC()
 	if err == nil && enforceCooldown && now.Before(existing.LastSentAt.Add(emailOTPResendCooldown)) {
-		return "", "", false, nil
+		return "", "", time.Time{}, false, nil
 	}
 	code, err := utils.GenerateEmailOTP()
 	if err != nil {
-		return "", "", false, err
+		return "", "", time.Time{}, false, err
 	}
 	hash, err := utils.HashEmailOTP(user.ID, code)
 	if err != nil {
-		return "", "", false, err
+		return "", "", time.Time{}, false, err
 	}
+	expiresAt := now.Add(lifetime)
 	record := models.EmailVerificationOTP{
 		UserID:     user.ID,
 		CodeHash:   hash,
 		Attempts:   0,
 		LastSentAt: now,
-		ExpiresAt:  now.Add(lifetime),
+		ExpiresAt:  expiresAt,
 	}
 	if err := tx.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "user_id"}},
@@ -282,9 +298,9 @@ func prepareEmailOTP(tx *gorm.DB, user *models.User, enforceCooldown bool, lifet
 			"code_hash": hash, "attempts": 0, "last_sent_at": now, "expires_at": record.ExpiresAt,
 		}),
 	}).Create(&record).Error; err != nil {
-		return "", "", false, err
+		return "", "", time.Time{}, false, err
 	}
-	return code, hash, true, nil
+	return code, hash, expiresAt, true, nil
 }
 
 func emailOTPLifetime() time.Duration {
@@ -293,15 +309,6 @@ func emailOTPLifetime() time.Duration {
 		return defaultEmailOTPLifetime
 	}
 	return time.Duration(minutes) * time.Minute
-}
-
-func clearUndeliveredEmailOTP(userID, hash string) {
-	if userID == "" || hash == "" {
-		return
-	}
-	if err := database.DB.Where("user_id = ? AND code_hash = ?", userID, hash).Delete(&models.EmailVerificationOTP{}).Error; err != nil {
-		log.Printf("failed to clear undelivered email OTP for user %s: %v", userID, err)
-	}
 }
 
 type LoginRequest struct {
@@ -393,7 +400,7 @@ func Login(c *gin.Context) {
 
 	setSessionCookie(c, rawToken, int(sessionLifetime.Seconds()))
 	auditLoginWithActor(c, &user.ID, AuditAuthLogin, "session", session.ID, "Login berhasil dan sesi baru dibuat.", device, req.Location.Latitude, req.Location.Longitude, req.Location.Accuracy)
-	c.JSON(http.StatusOK, gin.H{"message": "Login IPNU IPPNU ID berhasil.", "user": user})
+	c.JSON(http.StatusOK, gin.H{"message": "Login PelajarNU Magetan ID berhasil.", "user": user})
 }
 
 func GetSession(c *gin.Context) {

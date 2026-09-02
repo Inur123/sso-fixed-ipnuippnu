@@ -8,15 +8,15 @@ import (
 )
 
 func TestVerificationMessageUsesIPNUIPPNUBrandAndDoesNotLeakHTML(t *testing.T) {
-	t.Setenv("APP_NAME", "IPNU IPPNU ID")
+	t.Setenv("APP_NAME", "PelajarNU Magetan ID")
 	message := string(buildVerificationMessage(
-		mail.Address{Name: "IPNU IPPNU ID", Address: "noreply@example.com"},
+		mail.Address{Name: "PelajarNU Magetan ID", Address: "noreply@example.com"},
 		mail.Address{Address: "member@example.com"},
 		"<script>alert(1)</script>",
 		"012345",
 		10*time.Minute,
 	))
-	if !strings.Contains(message, "IPNU IPPNU ID") || !strings.Contains(message, "012345") {
+	if !strings.Contains(message, "PelajarNU Magetan ID") || !strings.Contains(message, "012345") {
 		t.Fatal("message must include brand and OTP")
 	}
 	if strings.Contains(message, "<p>Halo <script>") {

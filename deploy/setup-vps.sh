@@ -15,9 +15,41 @@ DEPLOY_R2_ACCESS_KEY_ID="${DEPLOY_R2_ACCESS_KEY_ID:-}"
 DEPLOY_R2_SECRET_ACCESS_KEY="${DEPLOY_R2_SECRET_ACCESS_KEY:-}"
 DEPLOY_R2_BUCKET_NAME="${DEPLOY_R2_BUCKET_NAME:-}"
 DEPLOY_R2_PUBLIC_URL="${DEPLOY_R2_PUBLIC_URL:-}"
+DEPLOY_TURNSTILE_SECRET_KEY="${DEPLOY_TURNSTILE_SECRET_KEY:-}"
+DEPLOY_TURNSTILE_SITE_KEY="${DEPLOY_TURNSTILE_SITE_KEY:-}"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Jalankan sebagai root." >&2
+  exit 1
+fi
+
+read_config_value() {
+  local file_path="${1:?Path environment wajib diberikan}"
+  local key="${2:?Nama environment wajib diberikan}"
+  [[ -s "${file_path}" ]] || return 0
+  awk -F= -v expected_key="${key}" '
+    $1 == expected_key {
+      sub(/^[^=]*=/, "")
+      print
+      exit
+    }
+  ' "${file_path}"
+}
+
+if [[ -z "${DEPLOY_TURNSTILE_SECRET_KEY}" ]]; then
+  DEPLOY_TURNSTILE_SECRET_KEY="$(read_config_value "${CONFIG_ROOT}/backend.env" TURNSTILE_SECRET_KEY)"
+fi
+if [[ -z "${DEPLOY_TURNSTILE_SITE_KEY}" ]]; then
+  DEPLOY_TURNSTILE_SITE_KEY="$(read_config_value "${CONFIG_ROOT}/frontend.env" NEXT_PUBLIC_TURNSTILE_SITE_KEY)"
+fi
+if [[ -z "${DEPLOY_TURNSTILE_SECRET_KEY}" || -z "${DEPLOY_TURNSTILE_SITE_KEY}" ]]; then
+  echo "DEPLOY_TURNSTILE_SECRET_KEY dan DEPLOY_TURNSTILE_SITE_KEY wajib diatur." >&2
+  exit 1
+fi
+if [[ "${DEPLOY_TURNSTILE_SECRET_KEY}" == 1x0000000000000000000000000000000AA \
+   || "${DEPLOY_TURNSTILE_SITE_KEY}" == 1x00000000000000000000AA \
+   || "${DEPLOY_TURNSTILE_SITE_KEY}" == replace-* ]]; then
+  echo "Production tidak boleh memakai test key atau placeholder Turnstile." >&2
   exit 1
 fi
 
@@ -100,7 +132,7 @@ if [[ ! -s "${CONFIG_ROOT}/backend.env" ]]; then
   {
     printf '%s\n' \
       'APP_ENV=production' \
-      'APP_NAME=IPNU IPPNU Magetan ID' \
+      'APP_NAME=PelajarNU Magetan ID' \
       'BACKEND_PORT=8180' \
       'BACKEND_PUBLIC_URL=https://api.pelajarnumagetan.id' \
       'FRONTEND_PUBLIC_URL=https://pelajarnumagetan.id' \
@@ -129,13 +161,17 @@ if [[ ! -s "${CONFIG_ROOT}/backend.env" ]]; then
       "MAIL_PASSWORD=${mail_password}" \
       'MAIL_ENCRYPTION=tls' \
       "MAIL_FROM_ADDRESS=${DEPLOY_MAIL_FROM_ADDRESS}" \
-      'MAIL_FROM_NAME=SSO IPNU IPPNU Magetan ID' \
+      'MAIL_FROM_NAME=PelajarNU Magetan ID' \
       'MAIL_OTP_TTL_MINUTES=10' \
+      'MAIL_QUEUE_MAX_ATTEMPTS=8' \
+      'MAIL_QUEUE_CONCURRENCY=2' \
       "R2_ACCOUNT_ID=${DEPLOY_R2_ACCOUNT_ID}" \
       "R2_ACCESS_KEY_ID=${DEPLOY_R2_ACCESS_KEY_ID}" \
       "R2_SECRET_ACCESS_KEY=${DEPLOY_R2_SECRET_ACCESS_KEY}" \
       "R2_BUCKET_NAME=${DEPLOY_R2_BUCKET_NAME}" \
       "R2_PUBLIC_URL=${DEPLOY_R2_PUBLIC_URL}" \
+      "TURNSTILE_SECRET_KEY=${DEPLOY_TURNSTILE_SECRET_KEY}" \
+      'TURNSTILE_ALLOWED_HOSTNAMES=pelajarnumagetan.id' \
       'PROVISIONING_TARGETS_JSON={}' \
       'PROVISIONING_MAX_ATTEMPTS=12' \
       'PROVISIONING_CONCURRENCY=4' \
@@ -151,31 +187,34 @@ for required_key in \
   R2_ACCESS_KEY_ID \
   R2_SECRET_ACCESS_KEY \
   R2_BUCKET_NAME \
-  R2_PUBLIC_URL; do
+  R2_PUBLIC_URL \
+  TURNSTILE_SECRET_KEY \
+  TURNSTILE_ALLOWED_HOSTNAMES; do
   if ! grep -Eq "^${required_key}=.+" "${CONFIG_ROOT}/backend.env"; then
     echo "${required_key} belum dikonfigurasi di ${CONFIG_ROOT}/backend.env." >&2
     exit 1
   fi
 done
 
-cat > "${CONFIG_ROOT}/frontend.env" <<'EOF'
+cat > "${CONFIG_ROOT}/frontend.env" <<EOF
 NODE_ENV=production
 PORT=3100
 HOSTNAME=127.0.0.1
 BACKEND_SESSION_COOKIE_NAME=sso_session
 NEXT_PUBLIC_BACKEND_URL=https://api.pelajarnumagetan.id
 NEXT_PUBLIC_DOCUMENTATION_URL=https://doc.pelajarnumagetan.id
-NEXT_PUBLIC_APP_NAME=IPNU IPPNU Magetan ID
+NEXT_PUBLIC_APP_NAME=PelajarNU Magetan ID
 NEXT_PUBLIC_APP_TAGLINE=Single Sign-On
 NEXT_PUBLIC_APP_DESCRIPTION=Pusat identitas dan Single Sign-On resmi PC IPNU IPPNU Kabupaten Magetan.
 NEXT_PUBLIC_ORGANIZATION_NAME=PC IPNU IPPNU Kabupaten Magetan
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=${DEPLOY_TURNSTILE_SITE_KEY}
 EOF
 chown root:"${APP_GROUP}" "${CONFIG_ROOT}/frontend.env"
 chmod 0640 "${CONFIG_ROOT}/frontend.env"
 
 cat > /etc/systemd/system/ipnu-sso-backend.service <<'EOF'
 [Unit]
-Description=IPNU IPPNU Magetan ID SSO Backend
+Description=PelajarNU Magetan ID SSO Backend
 After=network-online.target postgresql.service
 Wants=network-online.target
 
@@ -209,7 +248,7 @@ EOF
 
 cat > /etc/systemd/system/ipnu-sso-frontend.service <<'EOF'
 [Unit]
-Description=IPNU IPPNU Magetan ID SSO Frontend
+Description=PelajarNU Magetan ID SSO Frontend
 After=network-online.target ipnu-sso-backend.service
 Wants=network-online.target
 
