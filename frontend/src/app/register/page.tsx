@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { AlertCircle, Check, UserPlus } from "lucide-react";
+import { AlertCircle, Circle, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
+import { Turnstile } from "@/components/turnstile";
 import { apiFetch, getErrorMessage } from "@/lib/api";
 import {
   clearOTPResendCooldown,
@@ -21,7 +22,8 @@ import {
 
 interface RegisterResponse {
   message?: string;
-  verification_email_sent: boolean;
+  verification_email_queued?: boolean;
+  verification_email_sent?: boolean;
 }
 
 export default function RegisterPage() {
@@ -31,18 +33,36 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const hasMinimumPasswordLength = password.length >= 8;
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!turnstileToken) {
+      setError("Selesaikan verifikasi keamanan sebelum membuat akun.");
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
       const normalizedEmail = email.trim().toLowerCase();
       const response = await apiFetch<RegisterResponse>("/api/auth/register", {
         method: "POST",
-        body: JSON.stringify({ name, email: normalizedEmail, password }),
+        body: JSON.stringify({
+          name,
+          email: normalizedEmail,
+          password,
+          turnstile_token: turnstileToken,
+        }),
       });
-      if (response.verification_email_sent) {
+      if (response.verification_email_queued) {
+        startOTPResendCooldown(normalizedEmail);
+        toast.success(
+          response.message ??
+            "Akun berhasil dibuat. Kode verifikasi sedang dikirim ke email Anda.",
+        );
+      } else if (response.verification_email_sent) {
         startOTPResendCooldown(normalizedEmail);
         toast.success(
           response.message ??
@@ -56,10 +76,16 @@ export default function RegisterPage() {
         );
       }
       const query = new URLSearchParams({ email: normalizedEmail });
-      if (!response.verification_email_sent) query.set("delivery", "failed");
+      if (response.verification_email_queued) {
+        query.set("delivery", "queued");
+      } else if (!response.verification_email_sent) {
+        query.set("delivery", "failed");
+      }
       router.replace(`/verify-email?${query.toString()}`);
     } catch (submitError) {
       setError(getErrorMessage(submitError));
+      setTurnstileToken("");
+      setTurnstileResetKey((current) => current + 1);
     } finally {
       setSubmitting(false);
     }
@@ -68,7 +94,10 @@ export default function RegisterPage() {
   return (
     <AuthShell
       title="Buat akun anggota"
-      description="Daftar sebagai anggota IPNU IPPNU ID, kemudian verifikasi email Anda."
+      description="Daftar sebagai anggota PelajarNU Magetan ID, kemudian verifikasi email Anda."
+      panelBadge="Satu akun, banyak layanan"
+      panelTitle="Mulai satu identitas untuk seluruh layanan."
+      panelDescription="Buat akun, verifikasi email, lalu gunakan identitas yang sama di setiap layanan digital organisasi."
     >
       <form className="w-full min-w-0 space-y-5" onSubmit={handleSubmit}>
         {error && (
@@ -111,12 +140,26 @@ export default function RegisterPage() {
             maxLength={72}
             required
           />
-          <div className="flex items-start gap-2 text-xs leading-5 text-muted-foreground">
-            <Check className="mt-0.5 size-3.5 shrink-0 text-primary" />
-            <p>Gunakan minimal 8 karakter</p>
-          </div>
+          {password.length > 0 && !hasMinimumPasswordLength && (
+            <div
+              className="flex items-start gap-2 text-xs leading-5 text-muted-foreground"
+              role="status"
+              aria-live="polite"
+            >
+              <Circle className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+              <p>Gunakan minimal 8 karakter</p>
+            </div>
+          )}
         </div>
-        <Button className="w-full min-w-0" size="lg" disabled={submitting}>
+        <Turnstile
+          onTokenChange={setTurnstileToken}
+          resetKey={turnstileResetKey}
+        />
+        <Button
+          className="w-full min-w-0"
+          size="lg"
+          disabled={submitting || !turnstileToken}
+        >
           {submitting ? <Spinner /> : <UserPlus />}
           {submitting ? "Membuat akun..." : "Buat akun"}
         </Button>

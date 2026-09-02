@@ -5,8 +5,10 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock3,
+  ExternalLink,
   Fingerprint,
   Globe,
+  Link2,
   LogIn,
   ShieldCheck,
   Sparkles,
@@ -53,6 +55,7 @@ const connectedServices = [
     title: "Layanan Cerdas Administrasi",
     description:
       "Kelola kebutuhan administrasi organisasi dengan akses yang terhubung ke satu akun SSO.",
+    href: null,
   },
   {
     icon: UserRound,
@@ -60,6 +63,15 @@ const connectedServices = [
     title: "Sistem data dan keanggotaan",
     description:
       "Akses layanan keanggotaan dan informasi anggota dalam ekosistem digital organisasi.",
+    href: null,
+  },
+  {
+    icon: Link2,
+    name: "Short URL",
+    title: "Penyingkat tautan PelajarNU",
+    description:
+      "Buat dan kelola tautan singkat untuk kebutuhan publikasi dan layanan digital organisasi.",
+    href: "https://s.pelajarnumagetan.or.id",
   },
 ];
 
@@ -142,29 +154,58 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="mt-10 grid gap-5 md:grid-cols-2">
-            {connectedServices.map(({ icon: Icon, name, title, description }) => (
-              <article
-                key={name}
-                className="group relative overflow-hidden rounded-2xl border bg-background p-6 shadow-sm transition-shadow hover:shadow-md sm:p-7"
-              >
-                <div className="absolute inset-x-0 top-0 h-1 bg-primary/15 transition-colors group-hover:bg-primary/30" />
-                <div className="flex items-start justify-between gap-5">
-                  <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Icon className="size-6" />
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary">
-                    <Clock3 className="size-3.5" />
-                    Coming soon
-                  </span>
-                </div>
-                <h3 className="mt-6 text-xl font-semibold tracking-[-0.02em]">{name}</h3>
-                <p className="mt-1 text-sm font-medium text-primary">{title}</p>
-                <p className="mt-3 max-w-lg text-sm leading-6 text-muted-foreground">
-                  {description}
-                </p>
-              </article>
-            ))}
+          <div className="mt-10 grid gap-5 md:grid-cols-3">
+            {connectedServices.map(({ icon: Icon, name, title, description, href }) => {
+              const cardContent = (
+                <>
+                  <div
+                    className={`absolute inset-x-0 top-0 h-1 transition-colors ${
+                      href ? "bg-primary/70 group-hover:bg-primary" : "bg-primary/15 group-hover:bg-primary/30"
+                    }`}
+                  />
+                  <div className="flex items-start justify-between gap-5">
+                    <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <Icon className="size-6" />
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/5 px-2.5 py-1 text-xs font-medium text-primary">
+                      {href ? <CheckCircle2 className="size-3.5" /> : <Clock3 className="size-3.5" />}
+                      {href ? "Tersedia" : "Coming soon"}
+                    </span>
+                  </div>
+                  <h3 className="mt-6 text-xl font-semibold tracking-[-0.02em]">{name}</h3>
+                  <p className="mt-1 text-sm font-medium text-primary">{title}</p>
+                  <p className="mt-3 max-w-lg text-sm leading-6 text-muted-foreground">
+                    {description}
+                  </p>
+                  {href && (
+                    <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-primary">
+                      Buka layanan
+                      <ExternalLink className="size-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                    </span>
+                  )}
+                </>
+              );
+
+              const cardClassName =
+                "group relative overflow-hidden rounded-2xl border bg-background p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:p-7";
+
+              return href ? (
+                <a
+                  key={name}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Buka layanan ${name} di tab baru`}
+                  className={`${cardClassName} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`}
+                >
+                  {cardContent}
+                </a>
+              ) : (
+                <article key={name} className={cardClassName}>
+                  {cardContent}
+                </article>
+              );
+            })}
           </div>
         </div>
       </section>

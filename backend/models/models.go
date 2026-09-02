@@ -70,6 +70,26 @@ type EmailVerificationOTP struct {
 	UpdatedAt  time.Time `json:"-"`
 }
 
+// VerificationEmailOutbox menyimpan pekerjaan pengiriman OTP secara persisten.
+// Kode OTP disimpan dalam ciphertext AES-GCM dan dihapus setelah pekerjaan
+// selesai, kedaluwarsa, atau digantikan oleh OTP yang lebih baru.
+type VerificationEmailOutbox struct {
+	ID            string     `gorm:"type:uuid;primaryKey" json:"-"`
+	UserID        string     `gorm:"type:uuid;not null;index" json:"-"`
+	User          User       `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
+	CodeHash      string     `gorm:"type:char(64);not null;index" json:"-"`
+	EncryptedCode string     `gorm:"type:text;not null" json:"-"`
+	ExpiresAt     time.Time  `gorm:"not null;index" json:"-"`
+	Status        string     `gorm:"type:varchar(20);not null;default:'pending';index:idx_verification_email_ready,priority:1" json:"status"`
+	Attempts      int        `gorm:"not null;default:0" json:"attempts"`
+	NextAttemptAt time.Time  `gorm:"not null;index:idx_verification_email_ready,priority:2" json:"next_attempt_at"`
+	LockedUntil   *time.Time `gorm:"index" json:"-"`
+	LastError     string     `gorm:"type:varchar(500)" json:"last_error,omitempty"`
+	DeliveredAt   *time.Time `json:"delivered_at,omitempty"`
+	CreatedAt     time.Time  `json:"created_at"`
+	UpdatedAt     time.Time  `json:"updated_at"`
+}
+
 // AuditLog menyimpan jejak tindakan keamanan dan administrasi. Payload request
 // tidak pernah disimpan di sini; handler hanya memasukkan deskripsi aman yang
 // sudah disanitasi. ActorID nullable untuk kejadian anonim seperti login gagal.

@@ -1,0 +1,19 @@
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+  categories:
+    - title: Fitur baru
+      labels:
+        - enhancement
+        - feature
+    - title: Perbaikan
+      labels:
+        - bug
+        - fix
+    - title: Dokumentasi
+      labels:
+        - documentation
+    - title: Perubahan lainnya
+      labels:
+        - "*"

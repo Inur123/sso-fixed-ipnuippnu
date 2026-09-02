@@ -1,7 +1,7 @@
 ---
 title: Quickstart
 sidebar_position: 2
-description: Alur singkat menghubungkan aplikasi ke SSO IPNU IPPNU ID.
+description: Alur singkat menghubungkan aplikasi ke SSO PelajarNU Magetan ID.
 ---
 
 # Quickstart

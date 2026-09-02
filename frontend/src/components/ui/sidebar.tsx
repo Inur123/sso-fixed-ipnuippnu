@@ -195,7 +195,7 @@ function Sidebar({
           side={side}
         >
           <SheetHeader className="sr-only">
-            <SheetTitle>Navigasi IPNU IPPNU ID</SheetTitle>
+            <SheetTitle>Navigasi PelajarNU Magetan ID</SheetTitle>
             <SheetDescription>Menu portal identitas dan pengaturan akun.</SheetDescription>
           </SheetHeader>
           <div className="flex h-full w-full flex-col">{children}</div>

@@ -5,7 +5,7 @@ title: Gambaran umum
 sidebar_label: Gambaran umum
 hide_title: true
 hide_table_of_contents: true
-description: Dokumentasi resmi integrasi aplikasi dengan SSO IPNU IPPNU ID.
+description: Dokumentasi resmi integrasi aplikasi dengan SSO PelajarNU Magetan ID.
 ---
 
 import Link from '@docusaurus/Link';
@@ -15,7 +15,7 @@ import OrganizationName from '@site/src/components/OrganizationName';
   <span className="docs-eyebrow">OAuth 2.0 • OpenID Connect • PKCE S256</span>
   <h1>SSO resmi <OrganizationName />.</h1>
   <p>
-    Panduan implementasi untuk menghubungkan aplikasi layanan <OrganizationName /> ke IPNU IPPNU Magetan ID
+    Panduan implementasi untuk menghubungkan aplikasi layanan <OrganizationName /> ke PelajarNU Magetan ID
     dengan Authorization Code, PKCE, ID token RS256, kendali akses per aplikasi,
     dan refresh token rotation.
   </p>
@@ -27,14 +27,14 @@ import OrganizationName from '@site/src/components/OrganizationName';
 
 ## Arsitektur ringkas
 
-IPNU IPPNU Magetan ID bertindak sebagai **Authorization Server** dan **OpenID Provider** resmi <OrganizationName />. Aplikasi yang terhubung adalah **Relying Party (RP)** sekaligus OAuth client. Alur yang didukung adalah Authorization Code dengan PKCE S256 untuk confidential client.
+PelajarNU Magetan ID bertindak sebagai **Authorization Server** dan **OpenID Provider** resmi <OrganizationName />. Aplikasi yang terhubung adalah **Relying Party (RP)** sekaligus OAuth client. Alur yang didukung adalah Authorization Code dengan PKCE S256 untuk confidential client.
 
 ```text
 Browser pengguna
   │
   ├─ 1. diarahkan ke /oauth/authorize + state + nonce + PKCE challenge
   │
-IPNU IPPNU ID
+PelajarNU Magetan ID
   │
   ├─ 2. autentikasi, verifikasi akun, pemeriksaan assignment, dan persetujuan
   └─ 3. redirect ke callback RP membawa code + state + iss
@@ -46,7 +46,7 @@ Server RP
 ```
 
 :::important Batas kepercayaan
-Cookie sesi portal IPNU IPPNU ID bukan sesi aplikasi Anda. Setelah callback berhasil, RP wajib membuat dan mengelola sesi lokalnya sendiri. Access token juga bukan ID token: perlakukan access token sebagai opaque dan gunakan endpoint UserInfo.
+Cookie sesi portal PelajarNU Magetan ID bukan sesi aplikasi Anda. Setelah callback berhasil, RP wajib membuat dan mengelola sesi lokalnya sendiri. Access token juga bukan ID token: perlakukan access token sebagai opaque dan gunakan endpoint UserInfo.
 :::
 
 <div className="docs-cards">

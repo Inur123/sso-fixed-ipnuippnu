@@ -1,6 +1,6 @@
 ---
 title: Membuat aplikasi OAuth
-description: Daftarkan aplikasi dan Redirect URI dari portal IPNU IPPNU ID.
+description: Daftarkan aplikasi dan Redirect URI dari portal PelajarNU Magetan ID.
 ---
 
 # Membuat aplikasi OAuth
@@ -9,7 +9,7 @@ Setiap akun anggota yang aktif dan sudah memverifikasi email dapat membuat aplik
 
 ## Langkah di dashboard
 
-1. Masuk ke portal IPNU IPPNU ID.
+1. Masuk ke portal PelajarNU Magetan ID.
 2. Buka **Aplikasi OAuth**.
 3. Pilih **Tambah aplikasi**.
 4. Isi nama, deskripsi opsional, dan minimal satu **Redirect URI**.

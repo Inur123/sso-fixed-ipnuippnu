@@ -207,7 +207,7 @@ if [[ "${public_ready}" != *'"status":"READY"'* ]]; then
 fi
 public_frontend="$(curl --fail --silent --show-error --max-time 15 \
   https://pelajarnumagetan.id/login)"
-if [[ "${public_frontend}" != *'IPNU IPPNU Magetan ID'* ]]; then
+if [[ "${public_frontend}" != *'PelajarNU Magetan ID'* ]]; then
   echo "Domain frontend publik tidak mengarah ke frontend release ini." >&2
   exit 1
 fi

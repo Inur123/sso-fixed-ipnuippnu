@@ -35,3 +35,8 @@ export const PUBLIC_ORGANIZATION_NAME = requiredPublicValue(
   "NEXT_PUBLIC_ORGANIZATION_NAME",
   process.env.NEXT_PUBLIC_ORGANIZATION_NAME,
 );
+
+export const PUBLIC_TURNSTILE_SITE_KEY = requiredPublicValue(
+  "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
+  process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+);

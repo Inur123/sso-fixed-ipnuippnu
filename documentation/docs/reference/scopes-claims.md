@@ -29,7 +29,7 @@ SSO menolak autentikasi akun yang emailnya belum terverifikasi. Meski demikian, 
 
 ## Role dan permission
 
-IPNU IPPNU ID tidak mengirim role platform `super_admin`/`anggota`, role bisnis, atau entitlement ke relying party. Assignment hanya menjadi gerbang boleh masuk. Aplikasi tujuan mengelola role dan permission sendiri setelah menghubungkan akun berdasarkan `(iss, sub)`.
+PelajarNU Magetan ID tidak mengirim role platform `super_admin`/`anggota`, role bisnis, atau entitlement ke relying party. Assignment hanya menjadi gerbang boleh masuk. Aplikasi tujuan mengelola role dan permission sendiri setelah menghubungkan akun berdasarkan `(iss, sub)`.
 
 ## Claim ID token vs data terbaru
 

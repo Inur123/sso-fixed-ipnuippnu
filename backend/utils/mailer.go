@@ -71,8 +71,8 @@ func applicationName() string {
 	return strings.TrimSpace(os.Getenv("APP_NAME"))
 }
 
-// SendVerificationEmail mengirim OTP secara sinkron. Untuk trafik produksi
-// berskala besar, fungsi ini dapat diganti queue worker tanpa mengubah handler.
+// SendVerificationEmail menjalankan satu percobaan SMTP. Handler API menaruh
+// pekerjaan pada outbox; worker memanggil fungsi ini dan mengatur retry.
 func SendVerificationEmail(recipient, recipientName, code string, expiresIn time.Duration) error {
 	to, err := mail.ParseAddress(strings.TrimSpace(recipient))
 	if err != nil || to.Address == "" {
@@ -122,6 +122,10 @@ func sendSMTP(config smtpConfig, recipient string, message []byte) error {
 		if err != nil {
 			return fmt.Errorf("connect SMTP TLS: %w", err)
 		}
+		if err := connection.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+			_ = connection.Close()
+			return fmt.Errorf("set SMTP deadline: %w", err)
+		}
 		client, err = smtp.NewClient(connection, config.host)
 		if err != nil {
 			_ = connection.Close()
@@ -131,6 +135,10 @@ func sendSMTP(config smtpConfig, recipient string, message []byte) error {
 		connection, err := dialer.Dial("tcp", address)
 		if err != nil {
 			return fmt.Errorf("connect SMTP: %w", err)
+		}
+		if err := connection.SetDeadline(time.Now().Add(30 * time.Second)); err != nil {
+			_ = connection.Close()
+			return fmt.Errorf("set SMTP deadline: %w", err)
 		}
 		client, err = smtp.NewClient(connection, config.host)
 		if err != nil {

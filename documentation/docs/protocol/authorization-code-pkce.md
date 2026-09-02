@@ -1,11 +1,11 @@
 ---
 title: Authorization Code + PKCE S256
-description: Alur protokol OAuth 2.0/OIDC yang didukung IPNU IPPNU ID.
+description: Alur protokol OAuth 2.0/OIDC yang didukung PelajarNU Magetan ID.
 ---
 
 # Authorization Code + PKCE S256
 
-IPNU IPPNU ID hanya mendukung `response_type=code`, grant `authorization_code` dan `refresh_token`, serta PKCE `S256`. Confidential client mengautentikasi dirinya sesuai metode yang diumumkan discovery. Public client tidak mengirim secret dan mengandalkan PKCE untuk mengikat code ke peminta awal.
+PelajarNU Magetan ID hanya mendukung `response_type=code`, grant `authorization_code` dan `refresh_token`, serta PKCE `S256`. Confidential client mengautentikasi dirinya sesuai metode yang diumumkan discovery. Public client tidak mengirim secret dan mengandalkan PKCE untuk mengikat code ke peminta awal.
 
 ## Parameter transaksi
 

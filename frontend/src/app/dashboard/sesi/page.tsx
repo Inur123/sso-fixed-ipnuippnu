@@ -90,7 +90,7 @@ function RevokeConnectionButton({
           </AlertDialogMedia>
           <AlertDialogTitle>Cabut akses {connection.name}?</AlertDialogTitle>
           <AlertDialogDescription>
-            Aplikasi ini tidak lagi dapat mengakses data akun IPNU IPPNU ID Anda. Untuk menghubungkannya kembali, Anda harus masuk dan memberi izin ulang melalui aplikasi tersebut.
+            Aplikasi ini tidak lagi dapat mengakses data akun PelajarNU Magetan ID Anda. Untuk menghubungkannya kembali, Anda harus masuk dan memberi izin ulang melalui aplikasi tersebut.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -146,7 +146,7 @@ export default function SesiPage() {
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Sesi aplikasi</h1>
         <p className="text-sm text-muted-foreground sm:text-base">
-          Pantau dan kelola aplikasi yang terhubung dengan akun IPNU IPPNU ID Anda.
+          Pantau dan kelola aplikasi yang terhubung dengan akun PelajarNU Magetan ID Anda.
         </p>
       </div>
 
@@ -175,7 +175,7 @@ export default function SesiPage() {
                 <EmptyMedia variant="icon"><AppWindow /></EmptyMedia>
                 <EmptyTitle>Belum ada aplikasi terhubung</EmptyTitle>
                 <EmptyDescription>
-                  Aplikasi akan muncul di sini setelah Anda menggunakan IPNU IPPNU ID untuk masuk.
+                  Aplikasi akan muncul di sini setelah Anda menggunakan PelajarNU Magetan ID untuk masuk.
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -281,7 +281,7 @@ export default function SesiPage() {
 
       <p className="flex items-start gap-2 text-xs text-muted-foreground">
         <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-primary" />
-        Cabut akses menghentikan grant dan token di IPNU IPPNU ID. Aplikasi dapat tetap memiliki sesi lokal sampai aplikasi tersebut melakukan logout. Access token dan refresh token tidak pernah ditampilkan di halaman ini.
+        Cabut akses menghentikan grant dan token di PelajarNU Magetan ID. Aplikasi dapat tetap memiliki sesi lokal sampai aplikasi tersebut melakukan logout. Access token dan refresh token tidak pernah ditampilkan di halaman ini.
       </p>
     </div>
   );

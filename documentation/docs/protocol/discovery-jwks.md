@@ -63,7 +63,7 @@ RP wajib membandingkan `issuer` hasil discovery dengan issuer yang dikonfigurasi
 Validator memilih key berdasarkan `kid` header ID token, memastikan `alg=RS256`, lalu memverifikasi signature dan claims. Cache JWKS sesuai header HTTP (`Cache-Control: public, max-age=300`). Bila `kid` tidak ditemukan, refresh JWKS satu kali untuk mengakomodasi rotasi; jangan terus-menerus fetch pada token invalid.
 
 :::danger JWKS bukan untuk access token
-JWKS issuer hanya mendokumentasikan public key ID token RS256. Access token IPNU IPPNU ID adalah kredensial bearer internal; RP harus memperlakukannya opaque dan mengirimkannya ke UserInfo.
+JWKS issuer hanya mendokumentasikan public key ID token RS256. Access token PelajarNU Magetan ID adalah kredensial bearer internal; RP harus memperlakukannya opaque dan mengirimkannya ke UserInfo.
 :::
 
 ## Rotasi key

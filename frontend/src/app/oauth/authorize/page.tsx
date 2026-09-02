@@ -276,7 +276,7 @@ function AuthorizeContent() {
                     Gunakan akun lain
                   </span>
                   <span className="mt-1 block text-sm text-muted-foreground">
-                    Masuk dengan akun IPNU IPPNU ID yang berbeda
+                    Masuk dengan akun PelajarNU Magetan ID yang berbeda
                   </span>
                 </span>
                 <ChevronRight className="size-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
@@ -332,7 +332,7 @@ function AuthorizeContent() {
                 <div>
                   <p className="font-semibold">{client.name}</p>
                   <p className="text-sm text-muted-foreground">
-                    {client.description || "Aplikasi terdaftar IPNU IPPNU ID"}
+                    {client.description || "Aplikasi terdaftar PelajarNU Magetan ID"}
                   </p>
                 </div>
               </div>

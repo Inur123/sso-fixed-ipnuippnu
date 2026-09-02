@@ -124,7 +124,7 @@ export function ApplicationDetail({ clientID }: { clientID: string }) {
           <Button variant="ghost" size="icon" asChild className="mt-0.5 shrink-0" aria-label="Kembali ke daftar aplikasi"><Link href="/dashboard/aplikasi"><ArrowLeft /></Link></Button>
           <div className="min-w-0 space-y-1.5">
             <h1 className="truncate text-2xl font-semibold tracking-tight sm:text-3xl">{client.name}</h1>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{client.description || "Detail aplikasi OAuth yang terhubung ke IPNU IPPNU ID."}</p>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{client.description || "Detail aplikasi OAuth yang terhubung ke PelajarNU Magetan ID."}</p>
           </div>
         </div>
         <Badge className="mt-2 shrink-0" variant={client.status === "active" ? "default" : "destructive"}>{client.status === "active" ? "Aktif" : "Ditangguhkan"}</Badge>

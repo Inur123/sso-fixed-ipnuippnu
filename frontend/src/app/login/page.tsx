@@ -136,7 +136,7 @@ function LoginForm() {
               </Button>
             )}
             {errorCode === "account_inactive" && (
-              <p className="text-xs">Hubungi super admin IPNU IPPNU ID untuk mengaktifkan kembali akun Anda.</p>
+              <p className="text-xs">Hubungi super admin PelajarNU Magetan ID untuk mengaktifkan kembali akun Anda.</p>
             )}
           </AlertDescription>
         </Alert>
@@ -162,7 +162,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <AuthShell title="Selamat datang kembali" description="Masuk menggunakan akun IPNU IPPNU ID Anda.">
+    <AuthShell
+      title="Selamat datang kembali"
+      description="Masuk menggunakan akun PelajarNU Magetan ID Anda."
+      panelBadge="Akses cepat & aman"
+      panelTitle="Kembali terhubung ke seluruh layanan."
+      panelDescription="Masuk sekali untuk melanjutkan aktivitas Anda di seluruh layanan digital PC IPNU IPPNU Kabupaten Magetan."
+    >
       <Suspense fallback={<div className="flex justify-center py-12"><Spinner className="size-6" /></div>}><LoginForm /></Suspense>
     </AuthShell>
   );

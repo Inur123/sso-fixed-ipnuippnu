@@ -1,6 +1,6 @@
 ---
 title: Referensi endpoint
-description: Daftar endpoint publik OAuth 2.0 dan OpenID Connect IPNU IPPNU ID.
+description: Daftar endpoint publik OAuth 2.0 dan OpenID Connect PelajarNU Magetan ID.
 ---
 
 # Referensi endpoint
@@ -100,4 +100,4 @@ Kontrak webhook aplikasi tujuan dijelaskan pada [provisioning realtime](../proto
 
 ## Endpoint portal bukan API RP
 
-Path `/api/auth/*`, `/api/clients`, dan `/api/connections` adalah API portal IPNU IPPNU ID berbasis cookie sesi. Aplikasi RP tidak boleh bergantung pada cookie portal tersebut. Integrasi RP hanya memakai endpoint protokol publik di tabel awal halaman ini.
+Path `/api/auth/*`, `/api/clients`, dan `/api/connections` adalah API portal PelajarNU Magetan ID berbasis cookie sesi. Aplikasi RP tidak boleh bergantung pada cookie portal tersebut. Integrasi RP hanya memakai endpoint protokol publik di tabel awal halaman ini.
