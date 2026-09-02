@@ -11,7 +11,7 @@ Commits agar riwayat perubahan mudah ditinjau dan dirilis.
    - `fix/nama-perbaikan`
    - `docs/nama-dokumentasi`
    - `chore/nama-pekerjaan`
-   - `codex/nama-pekerjaan` untuk pekerjaan berbantuan Codex
+   - `release/vMAJOR.MINOR.PATCH` untuk persiapan rilis
 3. Push branch dan buka pull request menuju `main`.
 4. Merge hanya setelah CI lulus. Hapus branch setelah merge.
 
