@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/github/v/release/Inur123/sso-fixed-ipnuippnu?display_name=tag)](https://github.com/Inur123/sso-fixed-ipnuippnu/releases)
 
 **PelajarNU Magetan ID** adalah pusat identitas dan Single Sign-On resmi PC IPNU
-IPPNU Kabupaten Magetan. Sistem ini menyediakan satu akun anggota untuk mengakses
+IPPNU Kabupaten Magetan. Sistem ini menyediakan satu akun SSO untuk mengakses
 berbagai aplikasi yang terhubung dalam ekosistem PelajarNU Magetan.
 
 Portal utama tersedia di [pelajarnumagetan.id](https://pelajarnumagetan.id) dan
@@ -13,7 +13,7 @@ dokumentasi integrasi tersedia di
 
 ## Tentang sistem
 
-PelajarNU Magetan ID bertindak sebagai **Identity Provider**. Identitas anggota,
+PelajarNU Magetan ID bertindak sebagai **Identity Provider**. Identitas pengguna,
 autentikasi, persetujuan akses, dan siklus token dikelola secara terpusat sehingga
 aplikasi terhubung tidak perlu membuat sistem akun dan login sendiri-sendiri.
 
@@ -24,20 +24,22 @@ masing-masing aplikasi tujuan.
 
 ```mermaid
 flowchart LR
-    U[Anggota] --> P[Portal PelajarNU Magetan ID]
+    U[Pengguna] --> P[Portal PelajarNU Magetan ID]
     P --> I[Identity Provider]
     A[Aplikasi terhubung] <-->|OAuth 2.0 / OpenID Connect| I
     I --> D[(PostgreSQL)]
-    I --> E[Email OTP]
+    I --> E[Email verifikasi dan pemulihan akun]
     I --> T[Cloudflare Turnstile]
 ```
 
 ## Kemampuan utama
 
-- Registrasi anggota dengan verifikasi email menggunakan OTP enam digit.
+- Registrasi akun SSO dengan verifikasi email menggunakan OTP enam digit.
 - Perlindungan registrasi menggunakan Cloudflare Turnstile dan validasi
   server-side.
 - Login terpusat untuk seluruh aplikasi yang telah terdaftar.
+- Pemulihan kata sandi melalui tautan sekali pakai dengan masa berlaku 15 menit,
+  pembatasan permintaan, dan pencabutan sesi serta token lama setelah reset.
 - OAuth 2.0 Authorization Code dengan PKCE S256.
 - OpenID Connect dengan discovery metadata, ID token RS256, JWKS, dan UserInfo.
 - Persetujuan scope per pengguna dan aplikasi.
@@ -49,7 +51,9 @@ flowchart LR
   pengguna.
 - Provisioning pengguna berbasis outbox untuk sinkronisasi assignment secara
   asinkron dan idempotent.
-- Antrean email persisten dengan payload OTP terenkripsi dan retry exponential.
+- Antrean email OTP, reset kata sandi, dan notifikasi keamanan dengan payload
+  sensitif terenkripsi, retry exponential, serta template berlogo SSO.
+- Tanggal dan jam aplikasi konsisten menggunakan `Asia/Jakarta` (WIB).
 
 ## Alur autentikasi
 
@@ -71,7 +75,7 @@ flowchart LR
 | `super_admin` | Mengelola pengguna, status akun, role internal, serta audit aktivitas platform. |
 
 Aplikasi dapat menggunakan policy `assigned_only` untuk membatasi akses kepada
-pengguna yang ditugaskan atau `all_active_users` untuk seluruh anggota aktif.
+pengguna yang ditugaskan atau `all_active_users` untuk seluruh pengguna aktif.
 Penonaktifan akun maupun pencabutan assignment langsung membatalkan grant dan
 token yang masih berlaku.
 
@@ -90,9 +94,10 @@ token yang masih berlaku.
 - Kata sandi disimpan dalam bentuk hash bcrypt dan dibatasi panjang inputnya.
 - Cookie sesi menggunakan `HttpOnly`, `Secure`, dan kebijakan `SameSite` yang
   sesuai dengan arsitektur subdomain.
-- Client secret dan payload OTP sensitif disimpan menggunakan enkripsi AES-GCM.
-- Access token dan ID token ditandatangani dengan RSA serta dipublikasikan melalui
-  JWKS.
+- Client secret serta payload OTP dan reset yang sensitif disimpan menggunakan
+  enkripsi AES-GCM. Tabel token reset hanya menyimpan hash token.
+- Access token ditandatangani dengan HS256. ID token memakai RS256, dengan
+  kunci publik tersedia melalui JWKS.
 - Redirect URI harus cocok secara persis dan seluruh client wajib memakai PKCE
   S256.
 - Turnstile diverifikasi oleh backend dengan pembatasan hostname dan action.
@@ -115,7 +120,7 @@ PelajarNU Magetan ID telah digunakan sebagai layanan production. Proyek mengikut
 [`CHANGELOG.md`](CHANGELOG.md) dan artefak versi pada halaman
 [GitHub Releases](https://github.com/Inur123/sso-fixed-ipnuippnu/releases).
 
-Versi terbaru: **v2.0.0**.
+Versi terbaru: **v2.1.0**.
 
 ## Organisasi
 
