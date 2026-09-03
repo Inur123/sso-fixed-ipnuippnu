@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -10,8 +11,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"sso-backend/database"
+	"sso-backend/internal/apptime"
 	"sso-backend/models"
+	"sso-backend/passwordmailqueue"
 	"sso-backend/provisioning"
 	"sso-backend/utils"
 )
@@ -94,15 +98,25 @@ type ChangePasswordRequest struct {
 	NewPassword     string `json:"new_password" binding:"required,min=8,max=72"`
 }
 
+var errCredentialsChanged = errors.New("account credentials or session changed")
+
 func ChangePassword(c *gin.Context) {
 	var req ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		respondError(c, http.StatusBadRequest, "invalid_request", "Kata sandi baru minimal 8 karakter.")
 		return
 	}
+	if len(req.NewPassword) > 72 {
+		respondError(c, http.StatusBadRequest, "invalid_request", "Kata sandi maksimal 72 byte. Kurangi jumlah karakter atau simbol.")
+		return
+	}
 	user, _ := currentUser(c)
 	if user == nil || bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.CurrentPassword)) != nil {
 		respondError(c, http.StatusUnauthorized, "invalid_credentials", "Kata sandi saat ini salah.")
+		return
+	}
+	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.NewPassword)) == nil {
+		respondError(c, http.StatusBadRequest, "password_reuse", "Gunakan kata sandi baru yang berbeda dari kata sandi saat ini.")
 		return
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
@@ -112,8 +126,24 @@ func ChangePassword(c *gin.Context) {
 	}
 	session, _ := c.Get("session")
 	current, _ := session.(*models.Session)
-	now := time.Now().UTC()
+	previousHash := user.Password
 	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(user, "id = ?", user.ID).Error; err != nil {
+			return err
+		}
+		if user.Password != previousHash || !user.IsActive {
+			return errCredentialsChanged
+		}
+		now := apptime.Now()
+		if current != nil {
+			var activeSessions int64
+			if err := tx.Model(&models.Session{}).Where("id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?", current.ID, user.ID, now).Count(&activeSessions).Error; err != nil {
+				return err
+			}
+			if activeSessions != 1 {
+				return errCredentialsChanged
+			}
+		}
 		if err := tx.Model(user).Update("password", string(hash)).Error; err != nil {
 			return err
 		}
@@ -127,12 +157,23 @@ func ChangePassword(c *gin.Context) {
 		if err := tx.Model(&models.OAuthToken{}).Where("user_id = ? AND revoked_at IS NULL", user.ID).Update("revoked_at", now).Error; err != nil {
 			return err
 		}
-		return tx.Where("user_id = ?", user.ID).Delete(&models.OAuthAuthCode{}).Error
+		if err := tx.Where("user_id = ?", user.ID).Delete(&models.OAuthAuthCode{}).Error; err != nil {
+			return err
+		}
+		if err := passwordmailqueue.RevokeUserResetAccess(tx, user.ID, now); err != nil {
+			return err
+		}
+		return passwordmailqueue.EnqueuePasswordChanged(tx, *user, now, c.ClientIP(), current != nil)
 	})
+	if errors.Is(err, errCredentialsChanged) {
+		respondError(c, http.StatusUnauthorized, "invalid_credentials", "Kredensial atau sesi telah berubah. Silakan masuk kembali.")
+		return
+	}
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "server_error", "Gagal mengubah kata sandi.")
 		return
 	}
+	passwordmailqueue.Notify()
 	auditFromContext(c, AuditUserPasswordUpdate, "user", user.ID, "Kredensial akun diperbarui; sesi lain dan akses aplikasi lama dicabut.")
 	c.JSON(http.StatusOK, gin.H{"message": "Kata sandi diperbarui; sesi lain dan token aplikasi telah dicabut."})
 }

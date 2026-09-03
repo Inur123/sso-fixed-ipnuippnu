@@ -12,6 +12,7 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"sso-backend/internal/apptime"
 	"sso-backend/models"
 )
 
@@ -41,7 +42,7 @@ func Connect() {
 	query.Set("sslmode", sslMode)
 	databaseURL.RawQuery = query.Encode()
 
-	db, err := gorm.Open(postgres.Open(databaseURL.String()), &gorm.Config{})
+	db, err := openDatabase(databaseURL)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
@@ -65,7 +66,7 @@ func Connect() {
 	log.Printf("connected to PostgreSQL database %q", currentDatabase)
 
 	// AutoMigrate hanya untuk pengembangan awal. Produksi sebaiknya memakai migrasi terversi.
-	err = DB.AutoMigrate(&models.User{}, &models.EmailVerificationOTP{}, &models.VerificationEmailOutbox{}, &models.Session{}, &models.OAuthClient{}, &models.OAuthClientAssignment{}, &models.OAuthConsent{}, &models.OAuthAuthCode{}, &models.OAuthToken{}, &models.AuditLog{}, &models.ProvisioningOutbox{})
+	err = DB.AutoMigrate(&models.User{}, &models.EmailVerificationOTP{}, &models.VerificationEmailOutbox{}, &models.PasswordResetToken{}, &models.PasswordEmailOutbox{}, &models.Session{}, &models.OAuthClient{}, &models.OAuthClientAssignment{}, &models.OAuthConsent{}, &models.OAuthAuthCode{}, &models.OAuthToken{}, &models.AuditLog{}, &models.ProvisioningOutbox{})
 	if err != nil {
 		log.Fatal("Failed to migrate:", err)
 	}
@@ -90,6 +91,17 @@ func Connect() {
 	}
 
 	bootstrapSuperAdmin()
+}
+
+func openDatabase(databaseURL *url.URL) (*gorm.DB, error) {
+	connectionURL := *databaseURL
+	query := connectionURL.Query()
+	query.Del("timezone")
+	// Applies to every pooled connection without changing the database server
+	// globally or rewriting existing timestamptz values. Keep the slash literal:
+	// GORM's timezone matcher reads the raw DSN without URL-decoding the value.
+	connectionURL.RawQuery = query.Encode() + "&timezone=" + apptime.Zone
+	return gorm.Open(postgres.Open(connectionURL.String()), &gorm.Config{NowFunc: apptime.Now})
 }
 
 func validProductionSSLMode(host, sslMode string) bool {
@@ -148,7 +160,7 @@ func backfillOAuthClientOwnerAssignments() error {
 }
 
 func backfillOAuthConsentsFromActiveGrants() error {
-	now := time.Now().UTC()
+	now := apptime.Now()
 	return DB.Transaction(func(tx *gorm.DB) error {
 		var tokens []models.OAuthToken
 		if err := tx.

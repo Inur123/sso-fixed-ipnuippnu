@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiFetch, getErrorMessage, type Role, type User } from "@/lib/api";
+import { formatJakartaDate } from "@/lib/date-time";
 
 const PAGE_SIZE = 20;
 
@@ -234,7 +235,7 @@ function UserActions({ user, isCurrent, onRole, onStatus, onDelete }: { user: Us
 }
 
 function UserTableRow({ user, isCurrent, onRole, onStatus, onDelete }: { user: User; isCurrent: boolean; onRole: (user: User, role: Role) => void; onStatus: () => void; onDelete: () => void }) {
-  return <TableRow><TableCell className="max-w-72 pl-4"><UserIdentity user={user} /></TableCell><TableCell><Badge variant={user.is_active ? "outline" : "destructive"} className={user.is_active ? "border-primary/25 bg-primary/5 text-primary" : ""}>{user.is_active ? <UserCheck /> : <Ban />}{user.is_active ? "Aktif" : "Nonaktif"}</Badge></TableCell><TableCell><Badge variant={user.email_verified ? "outline" : "secondary"} className={user.email_verified ? "border-sky-500/25 bg-sky-500/5 text-sky-700" : ""}>{user.email_verified ? <BadgeCheck /> : <ShieldAlert />}{user.email_verified ? "Terverifikasi" : "Belum verifikasi"}</Badge></TableCell><TableCell><Badge variant={user.role === "super_admin" ? "default" : "secondary"}>{user.role === "super_admin" ? "Super admin" : "Anggota"}</Badge></TableCell><TableCell className="hidden text-sm text-muted-foreground xl:table-cell">{new Date(user.created_at).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })}</TableCell><TableCell className="pr-4 text-right"><UserActions user={user} isCurrent={isCurrent} onRole={onRole} onStatus={onStatus} onDelete={onDelete} /></TableCell></TableRow>;
+  return <TableRow><TableCell className="max-w-72 pl-4"><UserIdentity user={user} /></TableCell><TableCell><Badge variant={user.is_active ? "outline" : "destructive"} className={user.is_active ? "border-primary/25 bg-primary/5 text-primary" : ""}>{user.is_active ? <UserCheck /> : <Ban />}{user.is_active ? "Aktif" : "Nonaktif"}</Badge></TableCell><TableCell><Badge variant={user.email_verified ? "outline" : "secondary"} className={user.email_verified ? "border-sky-500/25 bg-sky-500/5 text-sky-700" : ""}>{user.email_verified ? <BadgeCheck /> : <ShieldAlert />}{user.email_verified ? "Terverifikasi" : "Belum verifikasi"}</Badge></TableCell><TableCell><Badge variant={user.role === "super_admin" ? "default" : "secondary"}>{user.role === "super_admin" ? "Super admin" : "Anggota"}</Badge></TableCell><TableCell className="hidden text-sm text-muted-foreground xl:table-cell">{formatJakartaDate(user.created_at)}</TableCell><TableCell className="pr-4 text-right"><UserActions user={user} isCurrent={isCurrent} onRole={onRole} onStatus={onStatus} onDelete={onDelete} /></TableCell></TableRow>;
 }
 
 function UserMobileCard({ user, isCurrent, onRole, onStatus, onDelete }: { user: User; isCurrent: boolean; onRole: (user: User, role: Role) => void; onStatus: () => void; onDelete: () => void }) {

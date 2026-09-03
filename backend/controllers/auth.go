@@ -15,6 +15,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"sso-backend/database"
+	"sso-backend/internal/apptime"
 	"sso-backend/mailqueue"
 	"sso-backend/models"
 	"sso-backend/utils"
@@ -164,7 +165,7 @@ func VerifyEmail(c *gin.Context) {
 			verificationError = "invalid_otp"
 			return nil
 		}
-		now := time.Now().UTC()
+		now := apptime.Now()
 		if !now.Before(record.ExpiresAt) {
 			if err := tx.Delete(&record).Error; err != nil {
 				return err
@@ -272,7 +273,7 @@ func prepareEmailOTP(tx *gorm.DB, user *models.User, enforceCooldown bool, lifet
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", "", time.Time{}, false, err
 	}
-	now := time.Now().UTC()
+	now := apptime.Now()
 	if err == nil && enforceCooldown && now.Before(existing.LastSentAt.Add(emailOTPResendCooldown)) {
 		return "", "", time.Time{}, false, nil
 	}
@@ -384,7 +385,7 @@ func Login(c *gin.Context) {
 		respondError(c, http.StatusInternalServerError, "server_error", "Gagal membuat sesi.")
 		return
 	}
-	now := time.Now().UTC()
+	now := apptime.Now()
 	session := models.Session{
 		TokenHash:  utils.HashToken(rawToken),
 		UserID:     user.ID,
@@ -393,7 +394,23 @@ func Login(c *gin.Context) {
 		LastSeenAt: now,
 		ExpiresAt:  now.Add(sessionLifetime),
 	}
-	if err := database.DB.Create(&session).Error; err != nil {
+	previousHash := user.Password
+	err = database.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&user, "id = ?", user.ID).Error; err != nil {
+			return err
+		}
+		// Reset yang selesai saat bcrypt diperiksa tidak boleh disusul sesi
+		// baru menggunakan kredensial lama.
+		if user.Password != previousHash || !user.IsActive || user.EmailVerifiedAt == nil {
+			return errCredentialsChanged
+		}
+		return tx.Create(&session).Error
+	})
+	if errors.Is(err, errCredentialsChanged) {
+		respondError(c, http.StatusUnauthorized, "invalid_credentials", "Email atau kata sandi salah. Silakan masuk kembali.")
+		return
+	}
+	if err != nil {
 		respondError(c, http.StatusInternalServerError, "server_error", "Gagal menyimpan sesi.")
 		return
 	}
@@ -411,7 +428,7 @@ func GetSession(c *gin.Context) {
 		return
 	}
 
-	now := time.Now().UTC()
+	now := apptime.Now()
 	var session models.Session
 	if err := database.DB.Preload("User").
 		Where("token_hash = ? AND revoked_at IS NULL AND expires_at > ?", utils.HashToken(rawToken), now).
@@ -440,7 +457,7 @@ func Logout(c *gin.Context) {
 		if err := database.DB.Select("user_id").Where("token_hash = ?", utils.HashToken(rawToken)).First(&session).Error; err == nil && session.UserID != "" {
 			actorID = &session.UserID
 		}
-		now := time.Now().UTC()
+		now := apptime.Now()
 		database.DB.Model(&models.Session{}).
 			Where("token_hash = ? AND revoked_at IS NULL", utils.HashToken(rawToken)).
 			Update("revoked_at", now)

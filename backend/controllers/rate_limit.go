@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"sso-backend/internal/apptime"
 )
 
 type rateEntry struct {
@@ -21,7 +22,7 @@ func RateLimit(limit int, window time.Duration) gin.HandlerFunc {
 	var mu sync.Mutex
 	entries := make(map[string]rateEntry)
 	return func(c *gin.Context) {
-		now := time.Now().UTC()
+		now := apptime.Now()
 		key := c.ClientIP()
 		mu.Lock()
 		// Bersihkan entry kedaluwarsa secara bertahap agar map tidak tumbuh tanpa

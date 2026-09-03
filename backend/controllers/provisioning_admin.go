@@ -3,10 +3,10 @@ package controllers
 import (
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"sso-backend/database"
+	"sso-backend/internal/apptime"
 	"sso-backend/models"
 	"sso-backend/provisioning"
 )
@@ -39,7 +39,7 @@ func AdminRetryProvisioningEvent(c *gin.Context) {
 	eventID := strings.TrimSpace(c.Param("id"))
 	result := database.DB.Model(&models.ProvisioningOutbox{}).
 		Where("id = ? AND status = ?", eventID, "dead").
-		Updates(map[string]any{"status": "pending", "attempts": 0, "next_attempt_at": time.Now().UTC(), "locked_until": nil, "last_error": ""})
+		Updates(map[string]any{"status": "pending", "attempts": 0, "next_attempt_at": apptime.Now(), "locked_until": nil, "last_error": ""})
 	if result.Error != nil {
 		respondError(c, http.StatusInternalServerError, "server_error", "Gagal menjadwalkan ulang event provisioning.")
 		return

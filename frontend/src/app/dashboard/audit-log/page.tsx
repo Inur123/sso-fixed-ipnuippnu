@@ -28,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiFetch, getErrorMessage } from "@/lib/api";
+import { formatJakartaDateTime } from "@/lib/date-time";
 
 const PAGE_SIZE = 20;
 
@@ -87,15 +88,7 @@ function actionLabel(action: string) {
 }
 
 function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatJakartaDateTime(value);
 }
 
 function actorLabel(log: AuditLog) {
