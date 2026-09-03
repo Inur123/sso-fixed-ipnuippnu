@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"sso-backend/database"
+	"sso-backend/internal/apptime"
 	"sso-backend/models"
 )
 
@@ -59,7 +60,7 @@ func GetApplicationConnections(c *gin.Context) {
 		clientByID[client.ID] = client
 	}
 
-	now := time.Now().UTC()
+	now := apptime.Now()
 	type clientState struct {
 		connection ApplicationConnection
 		active     bool
@@ -121,7 +122,7 @@ func GetApplicationConnections(c *gin.Context) {
 }
 
 func RevokeApplicationConnection(c *gin.Context) {
-	now := time.Now().UTC()
+	now := apptime.Now()
 	userID := c.GetString("userID")
 	err := database.DB.Transaction(func(tx *gorm.DB) error {
 		var token models.OAuthToken

@@ -21,7 +21,7 @@ if [[ ! -s "${frontend_dir}/public/images/logo-sso.png" ]]; then
   exit 1
 fi
 
-local_url_pattern='https?://(localhost|127\.0\.0\.1|\[::1\]):(8080|3001)'
+local_url_pattern='https?://(localhost|127\.0\.0\.1|\[::1\])(:[0-9]+)?([/"[:space:]]|$)'
 if grep -RIlE --include='*.js' --include='*.json' --exclude='*.map' \
   "${local_url_pattern}" "${static_dir}" > "${invalid_url_report}"; then
   echo "Artifact frontend masih berisi URL API/dokumentasi development:" >&2

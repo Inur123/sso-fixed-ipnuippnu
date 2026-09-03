@@ -15,6 +15,7 @@ import (
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"sso-backend/internal/apptime"
 	"sso-backend/models"
 	"sso-backend/utils"
 )
@@ -85,7 +86,7 @@ func Enqueue(tx *gorm.DB, user models.User, code, codeHash string, expiresAt tim
 	if err != nil {
 		return err
 	}
-	now := time.Now().UTC()
+	now := apptime.Now()
 	if !expiresAt.After(now) {
 		return errors.New("OTP expiry must be in the future")
 	}
@@ -141,7 +142,7 @@ func (d *dispatcher) run(ctx context.Context) {
 		case <-timer.C:
 		case <-cleanupTicker.C:
 			timer.Stop()
-			if err := d.db.Where("status IN ? AND updated_at < ?", []string{statusDelivered, statusDead, statusSuperseded}, time.Now().UTC().Add(-7*24*time.Hour)).
+			if err := d.db.Where("status IN ? AND updated_at < ?", []string{statusDelivered, statusDead, statusSuperseded}, apptime.Now().Add(-7*24*time.Hour)).
 				Delete(&models.VerificationEmailOutbox{}).Error; err != nil {
 				log.Printf("verification email cleanup: %v", err)
 			}
@@ -218,7 +219,7 @@ func (d *dispatcher) nextWakeDelay() (time.Duration, error) {
 
 func (d *dispatcher) claimOne() (models.VerificationEmailOutbox, bool, error) {
 	var item models.VerificationEmailOutbox
-	now := time.Now().UTC()
+	now := apptime.Now()
 	err := d.db.Transaction(func(tx *gorm.DB) error {
 		result := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
 			Where("next_attempt_at <= ? AND (status = ? OR (status = ? AND locked_until <= ?))", now, statusPending, statusProcessing, now).
@@ -241,7 +242,7 @@ func (d *dispatcher) claimOne() (models.VerificationEmailOutbox, bool, error) {
 }
 
 func (d *dispatcher) deliver(item models.VerificationEmailOutbox) {
-	now := time.Now().UTC()
+	now := apptime.Now()
 	var active int64
 	if err := d.db.Model(&models.EmailVerificationOTP{}).
 		Where("user_id = ? AND code_hash = ? AND expires_at > ?", item.UserID, item.CodeHash, now).
@@ -261,7 +262,7 @@ func (d *dispatcher) deliver(item models.VerificationEmailOutbox) {
 		d.fail(item, err)
 		return
 	}
-	deliveredAt := time.Now().UTC()
+	deliveredAt := apptime.Now()
 	d.finish(item.ID, statusDelivered, &deliveredAt, "")
 }
 
@@ -286,7 +287,7 @@ func (d *dispatcher) fail(item models.VerificationEmailOutbox, deliveryErr error
 		maxAttempts = defaultMaxAttempts
 	}
 	status := statusPending
-	nextAttemptAt := time.Now().UTC().Add(delay)
+	nextAttemptAt := apptime.Now().Add(delay)
 	updates := map[string]any{
 		"status": status, "attempts": attempts, "next_attempt_at": nextAttemptAt,
 		"locked_until": nil,

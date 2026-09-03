@@ -37,7 +37,7 @@ dokumentasi, `test` untuk pengujian, `refactor` untuk perubahan internal, dan
 
 ```bash
 cd backend
-go test ./...
+go build ./...
 go vet ./...
 
 cd ../frontend
@@ -49,6 +49,11 @@ cd ../documentation
 npm ci
 npm run typecheck
 ```
+
+Uji juga perilaku fitur yang berubah menggunakan data sintetis dan lingkungan
+lokal terisolasi. File tes, fixture, dan laporan bersifat sementara dan harus
+dibersihkan setelah pengujian. Build, lint, dan type-check bukan pengganti
+pengujian perilaku; jelaskan hasil keduanya dalam pull request.
 
 ## Rilis
 

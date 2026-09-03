@@ -26,6 +26,8 @@ const (
 	AuditUserDelete                  = "user.delete"
 	AuditUserProfileUpdate           = "user.profile_update"
 	AuditUserPasswordUpdate          = "user.password_update"
+	AuditUserPasswordResetRequest    = "user.password_reset_request"
+	AuditUserPasswordResetComplete   = "user.password_reset_complete"
 	AuditOAuthClientCreate           = "oauth.client_create"
 	AuditOAuthClientUpdate           = "oauth.client_update"
 	AuditOAuthClientDelete           = "oauth.client_delete"
@@ -44,7 +46,7 @@ const (
 
 var knownAuditActions = map[string]struct{}{
 	AuditUserRegister: {}, AuditEmailVerify: {}, AuditAuthLogin: {}, AuditAuthLoginFailed: {}, AuditAuthLogout: {},
-	AuditUserStatusUpdate: {}, AuditUserRoleUpdate: {}, AuditUserDelete: {}, AuditUserProfileUpdate: {}, AuditUserPasswordUpdate: {},
+	AuditUserStatusUpdate: {}, AuditUserRoleUpdate: {}, AuditUserDelete: {}, AuditUserProfileUpdate: {}, AuditUserPasswordUpdate: {}, AuditUserPasswordResetRequest: {}, AuditUserPasswordResetComplete: {},
 	AuditOAuthClientCreate: {}, AuditOAuthClientUpdate: {}, AuditOAuthClientDelete: {}, AuditOAuthClientAssignmentUpdate: {}, AuditOAuthClientAssignmentDelete: {}, AuditOAuthClientSecretView: {}, AuditOAuthClientSecretRegenerate: {}, AuditOAuthConsent: {}, AuditOAuthGrant: {},
 	AuditOAuthTokenRevoke: {}, AuditOAuthConnectionRevoke: {},
 }

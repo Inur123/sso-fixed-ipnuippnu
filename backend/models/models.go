@@ -90,6 +90,49 @@ type VerificationEmailOutbox struct {
 	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
+// PasswordResetToken hanya menyimpan hash token acak. Token mentah hanya
+// tersedia sementara di outbox terenkripsi sampai email selesai dikirim.
+type PasswordResetToken struct {
+	ID                 string     `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"-"`
+	UserID             string     `gorm:"type:uuid;not null;index" json:"-"`
+	User               User       `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
+	TokenHash          string     `gorm:"type:char(64);uniqueIndex;not null" json:"-"`
+	RequestedIPAddress string     `gorm:"type:varchar(64)" json:"-"`
+	ExpiresAt          time.Time  `gorm:"not null;index" json:"-"`
+	UsedAt             *time.Time `gorm:"index" json:"-"`
+	RevokedAt          *time.Time `gorm:"index" json:"-"`
+	CreatedAt          time.Time  `gorm:"index" json:"-"`
+}
+
+const (
+	PasswordEmailResetLink = "reset_link"
+	PasswordEmailChanged   = "password_changed"
+)
+
+// PasswordEmailOutbox menyimpan email reset dan pemberitahuan perubahan kata
+// sandi secara persisten. Payload reset disimpan dalam ciphertext AES-GCM dan
+// dikosongkan setelah terkirim, kedaluwarsa, atau dibatalkan.
+type PasswordEmailOutbox struct {
+	ID                 string     `gorm:"type:uuid;primaryKey" json:"-"`
+	UserID             string     `gorm:"type:uuid;not null;index" json:"-"`
+	User               User       `gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE" json:"-"`
+	EventType          string     `gorm:"type:varchar(32);not null;index;check:event_type IN ('reset_link','password_changed')" json:"-"`
+	ResetTokenID       *string    `gorm:"type:uuid;index" json:"-"`
+	EncryptedPayload   string     `gorm:"type:text" json:"-"`
+	EventAt            time.Time  `gorm:"not null" json:"-"`
+	IPAddress          string     `gorm:"type:varchar(64)" json:"-"`
+	CurrentSessionKept bool       `gorm:"not null;default:false" json:"-"`
+	ExpiresAt          time.Time  `gorm:"not null;index" json:"-"`
+	Status             string     `gorm:"type:varchar(20);not null;default:'pending';index:idx_password_email_ready,priority:1" json:"status"`
+	Attempts           int        `gorm:"not null;default:0" json:"attempts"`
+	NextAttemptAt      time.Time  `gorm:"not null;index:idx_password_email_ready,priority:2" json:"next_attempt_at"`
+	LockedUntil        *time.Time `gorm:"index" json:"-"`
+	LastError          string     `gorm:"type:varchar(500)" json:"last_error,omitempty"`
+	DeliveredAt        *time.Time `json:"delivered_at,omitempty"`
+	CreatedAt          time.Time  `json:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at"`
+}
+
 // AuditLog menyimpan jejak tindakan keamanan dan administrasi. Payload request
 // tidak pernah disimpan di sini; handler hanya memasukkan deskripsi aman yang
 // sudah disanitasi. ActorID nullable untuk kejadian anonim seperti login gagal.

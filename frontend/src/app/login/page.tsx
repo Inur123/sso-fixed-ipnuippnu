@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
-import { AlertCircle, Ban, LocateFixed, LogIn, MailWarning } from "lucide-react";
+import { AlertCircle, Ban, CheckCircle2, LocateFixed, LogIn, MailWarning } from "lucide-react";
 import { toast } from "sonner";
 
 import { AuthShell } from "@/components/auth-shell";
@@ -84,6 +84,7 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [errorCode, setErrorCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const passwordResetSucceeded = searchParams.get("reset") === "success";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -125,6 +126,14 @@ function LoginForm() {
 
   return (
     <form className="min-w-0 space-y-5" onSubmit={handleSubmit}>
+      {passwordResetSucceeded && (
+        <Alert className="border-primary/20 bg-primary/5 text-foreground">
+          <CheckCircle2 className="text-primary" />
+          <AlertDescription>
+            Kata sandi berhasil diperbarui. Silakan masuk menggunakan kata sandi baru.
+          </AlertDescription>
+        </Alert>
+      )}
       {error && (
         <Alert variant="destructive">
           {errorCode === "email_unverified" ? <MailWarning /> : errorCode === "account_inactive" ? <Ban /> : <AlertCircle />}
@@ -146,7 +155,12 @@ function LoginForm() {
         <Input id="email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="nama@organisasi.id" required />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="password">Kata sandi</Label>
+        <div className="flex items-center justify-between gap-3">
+          <Label htmlFor="password">Kata sandi</Label>
+          <Link href="/reset-password" className="text-xs font-medium text-primary underline-offset-4 hover:underline">
+            Lupa kata sandi?
+          </Link>
+        </div>
         <PasswordInput id="password" autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} required />
       </div>
       <Button className="w-full min-w-0" size="lg" disabled={submitting}>

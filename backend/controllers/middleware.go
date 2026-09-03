@@ -3,10 +3,10 @@ package controllers
 import (
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"sso-backend/database"
+	"sso-backend/internal/apptime"
 	"sso-backend/models"
 	"sso-backend/utils"
 )
@@ -20,7 +20,7 @@ func RequireSession(c *gin.Context) {
 	}
 
 	var session models.Session
-	now := time.Now().UTC()
+	now := apptime.Now()
 	if err := database.DB.Preload("User").
 		Where("token_hash = ? AND revoked_at IS NULL AND expires_at > ?", utils.HashToken(rawToken), now).
 		First(&session).Error; err != nil {
@@ -84,12 +84,12 @@ func RequireAuthToken(c *gin.Context) {
 	}
 
 	var token models.OAuthToken
-	if err := database.DB.Where("access_jti = ? AND client_id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?", claims.ID, claims.ClientID, claims.Subject, time.Now().UTC()).First(&token).Error; err != nil {
+	if err := database.DB.Where("access_jti = ? AND client_id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?", claims.ID, claims.ClientID, claims.Subject, apptime.Now()).First(&token).Error; err != nil {
 		respondError(c, http.StatusUnauthorized, "invalid_token", "Access token telah dicabut.")
 		c.Abort()
 		return
 	}
-	now := time.Now().UTC()
+	now := apptime.Now()
 	var client models.OAuthClient
 	if err := database.DB.First(&client, "id = ?", claims.ClientID).Error; err != nil {
 		database.DB.Model(&token).Where("revoked_at IS NULL").Update("revoked_at", now)

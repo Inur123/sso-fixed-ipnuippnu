@@ -16,7 +16,9 @@ import (
 	"github.com/joho/godotenv"
 	"sso-backend/controllers"
 	"sso-backend/database"
+	"sso-backend/internal/apptime"
 	"sso-backend/mailqueue"
+	"sso-backend/passwordmailqueue"
 	"sso-backend/provisioning"
 	"sso-backend/utils"
 )
@@ -83,6 +85,7 @@ func trustedProxiesFromEnv() ([]string, error) {
 }
 
 func main() {
+	apptime.Configure()
 	err := godotenv.Load()
 	if err != nil {
 		log.Println("No .env file found, relying on environment variables")
@@ -106,6 +109,9 @@ func main() {
 		log.Fatal(err)
 	}
 	if err := mailqueue.Configure(); err != nil {
+		log.Fatal(err)
+	}
+	if err := passwordmailqueue.Configure(); err != nil {
 		log.Fatal(err)
 	}
 	utils.InitR2Client()
@@ -137,6 +143,7 @@ func main() {
 	}
 	provisioning.Start(appCtx, database.DB)
 	mailqueue.Start(appCtx, database.DB)
+	passwordmailqueue.Start(appCtx, database.DB)
 
 	r := gin.Default()
 	if err := r.SetTrustedProxies(trustedProxies); err != nil {
@@ -176,6 +183,8 @@ func main() {
 	r.POST("/api/auth/login", controllers.RateLimit(10, time.Minute), controllers.Login)
 	r.POST("/api/auth/verify-email", controllers.RateLimit(10, 15*time.Minute), controllers.VerifyEmail)
 	r.POST("/api/auth/resend-verification", controllers.RateLimit(5, 15*time.Minute), controllers.ResendVerification)
+	r.POST("/api/auth/reset-password/request", controllers.RateLimit(5, 15*time.Minute), controllers.RequestPasswordReset)
+	r.POST("/api/auth/reset-password/confirm", controllers.RateLimit(10, 15*time.Minute), controllers.ConfirmPasswordReset)
 	// Pemeriksaan status sesi bersifat aman untuk halaman publik: pengguna anonim
 	// menerima {"user": null}, sementara seluruh endpoint dashboard tetap dijaga
 	// RequireSession.

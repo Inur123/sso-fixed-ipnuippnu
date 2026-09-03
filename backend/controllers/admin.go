@@ -5,13 +5,14 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"sso-backend/database"
+	"sso-backend/internal/apptime"
 	"sso-backend/models"
+	"sso-backend/passwordmailqueue"
 	"sso-backend/provisioning"
 )
 
@@ -96,7 +97,7 @@ func AdminUpdateRole(c *gin.Context) {
 		if err := tx.Model(&user).Update("role", req.Role).Error; err != nil {
 			return err
 		}
-		now := time.Now().UTC()
+		now := apptime.Now()
 		if err := tx.Model(&models.OAuthToken{}).Where("user_id = ? AND revoked_at IS NULL", user.ID).Update("revoked_at", now).Error; err != nil {
 			return err
 		}
@@ -155,7 +156,7 @@ func AdminUpdateStatus(c *gin.Context) {
 		if *req.IsActive {
 			return nil
 		}
-		now := time.Now().UTC()
+		now := apptime.Now()
 		if err := tx.Model(&models.Session{}).Where("user_id = ? AND revoked_at IS NULL", user.ID).Update("revoked_at", now).Error; err != nil {
 			return err
 		}
@@ -165,7 +166,10 @@ func AdminUpdateStatus(c *gin.Context) {
 		if err := tx.Where("user_id = ?", user.ID).Delete(&models.OAuthAuthCode{}).Error; err != nil {
 			return err
 		}
-		return tx.Where("user_id = ?", user.ID).Delete(&models.EmailVerificationOTP{}).Error
+		if err := tx.Where("user_id = ?", user.ID).Delete(&models.EmailVerificationOTP{}).Error; err != nil {
+			return err
+		}
+		return passwordmailqueue.RevokeUserResetAccess(tx, user.ID, now)
 	})
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		respondError(c, http.StatusNotFound, "not_found", "Pengguna tidak ditemukan.")

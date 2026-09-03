@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"sso-backend/database"
+	"sso-backend/internal/apptime"
 	"sso-backend/models"
 	"sso-backend/utils"
 )
@@ -114,7 +115,7 @@ func GetOAuthAuthorizationContext(c *gin.Context) {
 		respondError(c, http.StatusBadRequest, "invalid_scope", "Scope tidak diizinkan untuk aplikasi ini.")
 		return
 	}
-	if _, err := applicationAccess(database.DB, client, c.GetString("userID"), time.Now().UTC()); err != nil {
+	if _, err := applicationAccess(database.DB, client, c.GetString("userID"), apptime.Now()); err != nil {
 		if errors.Is(err, errApplicationAccessDenied) {
 			respondError(c, http.StatusForbidden, "access_denied", "Akun Anda belum diberi akses ke aplikasi ini.")
 			return

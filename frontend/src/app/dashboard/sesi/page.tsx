@@ -24,6 +24,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiFetch, getErrorMessage } from "@/lib/api";
+import { formatJakartaDateTime } from "@/lib/date-time";
 
 interface OAuthConnection {
   id: string;
@@ -36,15 +37,8 @@ interface OAuthConnection {
   expires_at: string;
 }
 
-const dateTimeFormatter = new Intl.DateTimeFormat("id-ID", {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
 function formatDateTime(value: string | null) {
-  if (!value) return "Belum digunakan";
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? "—" : dateTimeFormatter.format(date);
+  return formatJakartaDateTime(value, "Belum digunakan");
 }
 
 function ScopeList({ scopes }: { scopes: string[] }) {

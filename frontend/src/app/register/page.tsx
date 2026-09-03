@@ -93,8 +93,8 @@ export default function RegisterPage() {
 
   return (
     <AuthShell
-      title="Buat akun anggota"
-      description="Daftar sebagai anggota PelajarNU Magetan ID, kemudian verifikasi email Anda."
+      title="Buat akun SSO"
+      description="Buat identitas PelajarNU Magetan ID untuk masuk ke layanan yang terhubung, kemudian verifikasi email Anda."
       panelBadge="Satu akun, banyak layanan"
       panelTitle="Mulai satu identitas untuk seluruh layanan."
       panelDescription="Buat akun, verifikasi email, lalu gunakan identitas yang sama di setiap layanan digital organisasi."

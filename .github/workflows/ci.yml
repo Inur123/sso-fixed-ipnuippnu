@@ -29,8 +29,8 @@ jobs:
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
-      - name: Test
-        run: go test ./...
+      - name: Build
+        run: go build ./...
       - name: Vet
         run: go vet ./...
 

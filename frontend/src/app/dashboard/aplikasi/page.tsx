@@ -430,7 +430,7 @@ export default function AplikasiPage() {
                           spellCheck={false}
                           value={uri}
                           onChange={(event) => updateRedirectURI(index, event.target.value)}
-                          placeholder={index === 0 ? "http://localhost:4000/callback" : "https://app.example.com/callback"}
+                          placeholder="URL callback lengkap aplikasi Anda"
                           aria-label={`Redirect URI ${index + 1}`}
                           aria-invalid={Boolean(redirectURIErrors[index])}
                           aria-describedby={redirectURIErrors[index] ? `redirect-uri-error-${index}` : undefined}

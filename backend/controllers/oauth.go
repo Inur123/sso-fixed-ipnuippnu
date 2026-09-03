@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"sso-backend/database"
+	"sso-backend/internal/apptime"
 	"sso-backend/models"
 	"sso-backend/utils"
 )
@@ -176,7 +177,7 @@ func OAuthAuthorize(c *gin.Context) {
 		redirectOAuthError(c, req.RedirectURI, req.State, "invalid_request", "nonce wajib untuk permintaan OpenID Connect.")
 		return
 	}
-	if _, err := applicationAccess(database.DB, client, c.GetString("userID"), time.Now().UTC()); err != nil {
+	if _, err := applicationAccess(database.DB, client, c.GetString("userID"), apptime.Now()); err != nil {
 		if errors.Is(err, errApplicationAccessDenied) {
 			redirectOAuthError(c, req.RedirectURI, req.State, "access_denied", "Akun Anda belum diberi akses ke aplikasi ini.")
 			return
@@ -216,11 +217,30 @@ func OAuthAuthorize(c *gin.Context) {
 		State:               req.State,
 		Nonce:               req.Nonce,
 		AuthTime:            currentSessionCreatedAt(c),
-		ExpiresAt:           time.Now().UTC().Add(authorizationCodeLifetime),
+		ExpiresAt:           apptime.Now().Add(authorizationCodeLifetime),
 	}
-	now := time.Now().UTC()
+	now := apptime.Now()
 	database.DB.Where("expires_at <= ?", now).Delete(&models.OAuthAuthCode{})
 	if err := database.DB.Transaction(func(tx *gorm.DB) error {
+		var activeUser models.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&activeUser, "id = ?", userID).Error; err != nil {
+			return err
+		}
+		if _, _, _, denied := accountAccessError(&activeUser); denied {
+			return errCredentialsChanged
+		}
+		sessionValue, _ := c.Get("session")
+		session, _ := sessionValue.(*models.Session)
+		if session == nil {
+			return errCredentialsChanged
+		}
+		var activeSessions int64
+		if err := tx.Model(&models.Session{}).Where("id = ? AND user_id = ? AND revoked_at IS NULL AND expires_at > ?", session.ID, userID, apptime.Now()).Count(&activeSessions).Error; err != nil {
+			return err
+		}
+		if activeSessions != 1 {
+			return errCredentialsChanged
+		}
 		if err := tx.Create(&authCode).Error; err != nil {
 			return err
 		}
@@ -315,10 +335,18 @@ func exchangeAuthorizationCode(req TokenRequest, client models.OAuthClient) (tok
 			return err
 		}
 		var code models.OAuthAuthCode
+		if err := tx.Where("code_hash = ? AND client_id = ?", utils.HashToken(req.Code), client.ID).First(&code).Error; err != nil {
+			return errors.New("authorization code tidak valid")
+		}
+		// Urutan lock konsisten dengan reset: user, lalu code/token.
+		var lockedUser models.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&lockedUser, "id = ?", code.UserID).Error; err != nil {
+			return err
+		}
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("code_hash = ? AND client_id = ?", utils.HashToken(req.Code), client.ID).First(&code).Error; err != nil {
 			return errors.New("authorization code tidak valid")
 		}
-		if time.Now().UTC().After(code.ExpiresAt) || code.RedirectURI != req.RedirectURI || !utils.VerifyPKCES256(req.CodeVerifier, code.CodeChallenge) {
+		if apptime.Now().After(code.ExpiresAt) || code.RedirectURI != req.RedirectURI || !utils.VerifyPKCES256(req.CodeVerifier, code.CodeChallenge) {
 			tx.Delete(&code)
 			return errors.New("authorization code kedaluwarsa atau verifikasi PKCE gagal")
 		}
@@ -357,22 +385,29 @@ func rotateRefreshToken(req TokenRequest, client models.OAuthClient) (tokenRespo
 			return err
 		}
 		var current models.OAuthToken
+		if err := tx.Where("refresh_token_hash = ? AND client_id = ?", utils.HashToken(req.RefreshToken), client.ID).First(&current).Error; err != nil {
+			return errors.New("refresh token tidak valid")
+		}
+		var lockedUser models.User
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&lockedUser, "id = ?", current.UserID).Error; err != nil {
+			return err
+		}
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("refresh_token_hash = ? AND client_id = ?", utils.HashToken(req.RefreshToken), client.ID).First(&current).Error; err != nil {
 			return errors.New("refresh token tidak valid")
 		}
 		if current.RevokedAt != nil {
-			now := time.Now().UTC()
+			now := apptime.Now()
 			if err := tx.Model(&models.OAuthToken{}).Where("family_id = ? AND revoked_at IS NULL", current.FamilyID).Update("revoked_at", now).Error; err != nil {
 				return err
 			}
 			grantError = errors.New("refresh token reuse terdeteksi; seluruh token family telah dicabut")
 			return nil
 		}
-		if time.Now().UTC().After(current.RefreshExpiresAt) {
+		if apptime.Now().After(current.RefreshExpiresAt) {
 			grantError = errors.New("refresh token kedaluwarsa")
 			return nil
 		}
-		now := time.Now().UTC()
+		now := apptime.Now()
 		if err := tx.Model(&current).Updates(map[string]interface{}{"revoked_at": now, "last_used_at": now}).Error; err != nil {
 			return err
 		}
@@ -422,7 +457,7 @@ func issueTokenPair(tx *gorm.DB, userID, clientID, scope, familyID string) (toke
 	if err := tx.First(&client, "id = ?", clientID).Error; err != nil {
 		return tokenResponse{}, errInvalidOAuthClientCredentials
 	}
-	_, err := applicationAccess(tx, client, user.ID, time.Now().UTC())
+	_, err := applicationAccess(tx, client, user.ID, apptime.Now())
 	if err != nil {
 		if errors.Is(err, errApplicationAccessDenied) {
 			return tokenResponse{}, errors.New("akun tidak memiliki akses ke aplikasi")
@@ -441,7 +476,7 @@ func issueTokenPair(tx *gorm.DB, userID, clientID, scope, familyID string) (toke
 	if err != nil {
 		return tokenResponse{}, err
 	}
-	now := time.Now().UTC()
+	now := apptime.Now()
 	record := models.OAuthToken{
 		AccessJTI:        jti,
 		RefreshTokenHash: utils.HashToken(refreshToken),
@@ -488,7 +523,7 @@ func OAuthRevoke(c *gin.Context) {
 	}
 	revoked := false
 	if err == nil {
-		now := time.Now().UTC()
+		now := apptime.Now()
 		result := database.DB.Model(&models.OAuthToken{}).
 			Where("client_id = ? AND user_id = ? AND family_id = ? AND revoked_at IS NULL", record.ClientID, record.UserID, record.FamilyID).
 			Update("revoked_at", now)
@@ -564,5 +599,5 @@ func currentSessionCreatedAt(c *gin.Context) time.Time {
 			return session.CreatedAt
 		}
 	}
-	return time.Now().UTC()
+	return apptime.Now()
 }

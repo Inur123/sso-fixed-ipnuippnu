@@ -5,6 +5,14 @@ APP_USER="ipnu-sso"
 APP_GROUP="ipnu-sso"
 APP_ROOT="/opt/ipnu-sso"
 CONFIG_ROOT="/etc/ipnu-sso"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/url-config.sh"
+load_upstream_configuration "${DEPLOY_ENV_FILE:-${CONFIG_ROOT}/deploy.env}"
+BACKEND_PORT="$(url_component "${BACKEND_UPSTREAM_URL}" port)"
+FRONTEND_PORT="$(url_component "${FRONTEND_UPSTREAM_URL}" port)"
+FRONTEND_BIND_HOST="$(url_component "${FRONTEND_UPSTREAM_URL}" hostname)"
+FRONTEND_BIND_HOST="${FRONTEND_BIND_HOST#[}"
+FRONTEND_BIND_HOST="${FRONTEND_BIND_HOST%]}"
 DB_USER="ipnu_sso"
 DB_NAME="ipnu_ippnu_id_sso"
 DEPLOY_ADMIN_EMAIL="${DEPLOY_ADMIN_EMAIL:?DEPLOY_ADMIN_EMAIL wajib diatur}"
@@ -22,19 +30,6 @@ if [[ "${EUID}" -ne 0 ]]; then
   echo "Jalankan sebagai root." >&2
   exit 1
 fi
-
-read_config_value() {
-  local file_path="${1:?Path environment wajib diberikan}"
-  local key="${2:?Nama environment wajib diberikan}"
-  [[ -s "${file_path}" ]] || return 0
-  awk -F= -v expected_key="${key}" '
-    $1 == expected_key {
-      sub(/^[^=]*=/, "")
-      print
-      exit
-    }
-  ' "${file_path}"
-}
 
 if [[ -z "${DEPLOY_TURNSTILE_SECRET_KEY}" ]]; then
   DEPLOY_TURNSTILE_SECRET_KEY="$(read_config_value "${CONFIG_ROOT}/backend.env" TURNSTILE_SECRET_KEY)"
@@ -133,7 +128,7 @@ if [[ ! -s "${CONFIG_ROOT}/backend.env" ]]; then
     printf '%s\n' \
       'APP_ENV=production' \
       'APP_NAME=PelajarNU Magetan ID' \
-      'BACKEND_PORT=8180' \
+      "BACKEND_PORT=${BACKEND_PORT}" \
       'BACKEND_PUBLIC_URL=https://api.pelajarnumagetan.id' \
       'FRONTEND_PUBLIC_URL=https://pelajarnumagetan.id' \
       'BACKEND_CORS_ALLOWED_ORIGINS=https://pelajarnumagetan.id' \
@@ -196,10 +191,15 @@ for required_key in \
   fi
 done
 
+if [[ "$(read_config_value "${CONFIG_ROOT}/backend.env" BACKEND_PORT)" != "${BACKEND_PORT}" ]]; then
+  echo "BACKEND_PORT di backend.env harus cocok dengan BACKEND_UPSTREAM_URL." >&2
+  exit 1
+fi
+
 cat > "${CONFIG_ROOT}/frontend.env" <<EOF
 NODE_ENV=production
-PORT=3100
-HOSTNAME=127.0.0.1
+PORT=${FRONTEND_PORT}
+HOSTNAME=${FRONTEND_BIND_HOST}
 BACKEND_SESSION_COOKIE_NAME=sso_session
 NEXT_PUBLIC_BACKEND_URL=https://api.pelajarnumagetan.id
 NEXT_PUBLIC_DOCUMENTATION_URL=https://doc.pelajarnumagetan.id
@@ -307,7 +307,7 @@ if [[ ! -s "${TLS_CERT_DIR}/fullchain.pem" || ! -s "${TLS_CERT_DIR}/privkey.pem"
   exit 1
 fi
 
-cat > /etc/nginx/sites-available/ipnu-sso.conf <<'EOF'
+cat > /etc/nginx/sites-available/ipnu-sso.conf <<EOF
 server {
     listen 80;
     listen [::]:80;
@@ -322,20 +322,20 @@ server {
 
     location /images/ {
         root /opt/ipnu-sso/current/frontend/public;
-        try_files $uri =404;
+        try_files \$uri =404;
         access_log off;
         expires 7d;
         add_header Cache-Control "public, max-age=604800";
     }
 
     location / {
-        proxy_pass http://127.0.0.1:3100;
+        proxy_pass ${FRONTEND_UPSTREAM_URL%/};
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_set_header Upgrade \$http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_read_timeout 60s;
     }
@@ -355,12 +355,12 @@ server {
     client_max_body_size 1m;
 
     location / {
-        proxy_pass http://127.0.0.1:8180;
+        proxy_pass ${BACKEND_UPSTREAM_URL%/};
         proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_connect_timeout 5s;
         proxy_read_timeout 65s;
     }
@@ -381,12 +381,12 @@ server {
     index index.html;
 
     location /assets/ {
-        try_files $uri =404;
+        try_files \$uri =404;
         expires 1y;
         add_header Cache-Control "public, immutable";
     }
     location / {
-        try_files $uri $uri.html $uri/ =404;
+        try_files \$uri \$uri.html \$uri/ =404;
     }
 }
 EOF

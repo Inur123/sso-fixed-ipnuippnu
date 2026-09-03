@@ -5,12 +5,12 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"sso-backend/database"
+	"sso-backend/internal/apptime"
 	"sso-backend/models"
 	"sso-backend/provisioning"
 )
@@ -153,7 +153,7 @@ func AssignClientUser(c *gin.Context) {
 				return err
 			}
 		}
-		if err := revokeClientUserGrant(tx, client.ID, user.ID, time.Now().UTC()); err != nil {
+		if err := revokeClientUserGrant(tx, client.ID, user.ID, apptime.Now()); err != nil {
 			return err
 		}
 		if err := provisioning.Enqueue(tx, provisioning.EventAssigned, client, user); err != nil {
@@ -192,7 +192,7 @@ func DeleteClientAssignment(c *gin.Context) {
 		if err := tx.Delete(&deleted).Error; err != nil {
 			return err
 		}
-		if err := revokeClientUserGrant(tx, client.ID, deleted.UserID, time.Now().UTC()); err != nil {
+		if err := revokeClientUserGrant(tx, client.ID, deleted.UserID, apptime.Now()); err != nil {
 			return err
 		}
 		return provisioning.Enqueue(tx, provisioning.EventUnassigned, client, deleted.User)

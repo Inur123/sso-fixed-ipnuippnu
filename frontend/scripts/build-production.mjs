@@ -38,7 +38,7 @@ function requireHttpsUrl(name, value) {
   if (!value) throw new Error(`${name} wajib diatur di .env.production.`);
 
   const parsed = new URL(value);
-  const localHosts = new Set(["localhost", "127.0.0.1", "::1"]);
+  const localHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
   if (parsed.protocol !== "https:" || localHosts.has(parsed.hostname)) {
     throw new Error(`${name} harus menggunakan URL HTTPS non-localhost.`);
   }

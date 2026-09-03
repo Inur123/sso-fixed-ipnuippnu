@@ -22,6 +22,7 @@ import (
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"sso-backend/internal/apptime"
 	"sso-backend/models"
 )
 
@@ -187,7 +188,7 @@ func EnqueueForUser(tx *gorm.DB, eventType string, user models.User) error {
 }
 
 func enqueue(tx *gorm.DB, eventID string, dedupeKey *string, eventType string, client models.OAuthClient, user models.User) error {
-	now := time.Now().UTC()
+	now := apptime.Now()
 	config.RLock()
 	issuer := config.issuer
 	config.RUnlock()
@@ -295,7 +296,7 @@ func (d *dispatcher) run(ctx context.Context) {
 			timer.Stop()
 			// Event terkirim tidak diperlukan selamanya. Event gagal/dead tetap
 			// dipertahankan untuk investigasi dan retry manual.
-			if err := d.db.Where("status = ? AND dedupe_key IS NULL AND delivered_at < ?", statusDelivered, time.Now().UTC().Add(-30*24*time.Hour)).
+			if err := d.db.Where("status = ? AND dedupe_key IS NULL AND delivered_at < ?", statusDelivered, apptime.Now().Add(-30*24*time.Hour)).
 				Delete(&models.ProvisioningOutbox{}).Error; err != nil {
 				log.Printf("provisioning cleanup: %v", err)
 			}
@@ -372,7 +373,7 @@ func (d *dispatcher) nextWakeDelay() (time.Duration, error) {
 
 func (d *dispatcher) claimOne() (models.ProvisioningOutbox, bool, error) {
 	var item models.ProvisioningOutbox
-	now := time.Now().UTC()
+	now := apptime.Now()
 	err := d.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
 			Where("next_attempt_at <= ? AND (status = ? OR (status = ? AND locked_until <= ?))", now, statusPending, statusProcessing, now).
@@ -395,7 +396,7 @@ func (d *dispatcher) deliver(ctx context.Context, item models.ProvisioningOutbox
 		d.fail(item, errors.New("provisioning target is no longer configured"))
 		return
 	}
-	timestamp := strconv.FormatInt(time.Now().UTC().Unix(), 10)
+	timestamp := strconv.FormatInt(apptime.Now().Unix(), 10)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, target.URL, bytes.NewBufferString(item.Payload))
 	if err == nil {
 		req.Header.Set("Content-Type", "application/cloudevents+json")
@@ -417,7 +418,7 @@ func (d *dispatcher) deliver(ctx context.Context, item models.ProvisioningOutbox
 		d.fail(item, err)
 		return
 	}
-	now := time.Now().UTC()
+	now := apptime.Now()
 	if err := d.db.Model(&models.ProvisioningOutbox{}).Where("id = ? AND status = ?", item.ID, statusProcessing).
 		Updates(map[string]any{"status": statusDelivered, "delivered_at": now, "locked_until": nil, "last_error": "", "payload": "{}"}).Error; err != nil {
 		log.Printf("provisioning event %s delivered but status update failed: %v", item.ID, err)
@@ -439,7 +440,7 @@ func (d *dispatcher) fail(item models.ProvisioningOutbox, deliveryErr error) {
 	}
 	if err := d.db.Model(&models.ProvisioningOutbox{}).Where("id = ? AND status = ?", item.ID, statusProcessing).
 		Updates(map[string]any{"status": status, "attempts": attempts,
-			"next_attempt_at": time.Now().UTC().Add(retryDelay(attempts)), "locked_until": nil, "last_error": message}).Error; err != nil {
+			"next_attempt_at": apptime.Now().Add(retryDelay(attempts)), "locked_until": nil, "last_error": message}).Error; err != nil {
 		log.Printf("provisioning event %s failure update failed: %v", item.ID, err)
 	}
 }

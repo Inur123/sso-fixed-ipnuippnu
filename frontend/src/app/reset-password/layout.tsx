@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Buat akun SSO",
+  title: "Atur ulang kata sandi",
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
-export default function RegisterLayout({
+export default function ResetPasswordLayout({
   children,
 }: {
   children: React.ReactNode;
