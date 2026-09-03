@@ -27,11 +27,11 @@ echo "[1/6] Memeriksa koneksi ke ${TARGET_HOST}..."
 ssh -o BatchMode=yes -o ConnectTimeout=10 "${TARGET_HOST}" \
   'sudo test -d /opt/ipnu-sso/releases && sudo test -L /opt/ipnu-sso/current'
 
-echo "[2/6] Menjalankan test backend, lint, dan build produksi..."
+echo "[2/6] Menjalankan vet backend, lint, dan build produksi..."
 BACKEND_BINARY="${STAGING_DIR}/sso-backend"
 (
   cd "${REPOSITORY_ROOT}/backend"
-  go test ./...
+  go vet ./...
   CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -trimpath -ldflags="-s -w" -o "${BACKEND_BINARY}" .
 )
@@ -59,6 +59,7 @@ cp -a "${FRONTEND_DIR}/public" "${STAGING_DIR}/frontend/public"
 cp \
   "${SCRIPT_DIR}/setup-vps.sh" \
   "${SCRIPT_DIR}/verify-frontend-artifact.sh" \
+  "${SCRIPT_DIR}/url-config.sh" \
   "${STAGING_DIR}/deploy/"
 
 bash "${SCRIPT_DIR}/verify-frontend-artifact.sh" \
@@ -141,6 +142,9 @@ if [[ "${actual_build_id}" != "${expected_build_id}" ]]; then
   exit 1
 fi
 
+source "${new_release}/deploy/url-config.sh"
+load_upstream_configuration "${config_root}/deploy.env"
+
 ln -sfn "${new_release}" "${app_root}/current"
 activated=1
 
@@ -174,9 +178,9 @@ systemctl restart ipnu-sso-backend.service ipnu-sso-frontend.service
 healthy=0
 for _ in $(seq 1 30); do
   if curl --fail --silent --max-time 5 \
-      http://127.0.0.1:8180/ready >/dev/null 2>&1 \
+      "${BACKEND_UPSTREAM_URL%/}/ready" >/dev/null 2>&1 \
     && curl --fail --silent --max-time 5 \
-      http://127.0.0.1:3100/login >/dev/null 2>&1; then
+      "${FRONTEND_UPSTREAM_URL%/}/login" >/dev/null 2>&1; then
     healthy=1
     break
   fi

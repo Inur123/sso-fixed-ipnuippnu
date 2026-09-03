@@ -12,6 +12,14 @@ Frontend hanya memerlukan konfigurasi publik berawalan `NEXT_PUBLIC_`. Jangan
 menyimpan SMTP, database password, JWT secret, atau OAuth client secret pada
 environment tersebut.
 
+Alamat layanan lokal harus berasal dari env, bukan literal localhost di kode.
+Gunakan `NEXT_PUBLIC_BACKEND_URL` dan `NEXT_PUBLIC_DOCUMENTATION_URL` di
+`.env.local` untuk lokal, serta `.env.production` untuk build produksi.
+URL domain eksternal seperti Short URL dan script Turnstile tetap dipertahankan.
+Variabel `NEXT_PUBLIC_*` tertanam saat build, sehingga perubahan env produksi
+memerlukan build ulang. Pemeriksaan artifact menolak URL localhost pada port
+apa pun, termasuk port frontend, backend, dan dokumentasi.
+
 Untuk development gunakan:
 
 ```bash
