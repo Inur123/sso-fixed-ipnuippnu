@@ -4,7 +4,8 @@ Jelaskan perubahan dan alasan perubahan ini diperlukan.
 
 ## Pemeriksaan
 
-- [ ] Backend `go test ./...` dan `go vet ./...` lulus atau tidak terdampak.
+- [ ] Backend `go build ./...` dan `go vet ./...` lulus atau tidak terdampak.
+- [ ] Skenario fitur yang berubah sudah diuji; file dan data pengujian sementara sudah dibersihkan.
 - [ ] Frontend lint dan TypeScript lulus atau tidak terdampak.
 - [ ] Dokumentasi type-check lulus atau tidak terdampak.
 - [ ] Tidak ada credential, `.env`, atau data pribadi yang ikut di-commit.
