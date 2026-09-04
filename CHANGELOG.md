@@ -6,6 +6,15 @@ mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 
 ## [Unreleased]
 
+### Changed
+
+- Panduan backup dan teks dashboard diperjelas: unduh `.sql` setelah konfirmasi
+  kata sandi akun SSO, lalu impor ke PostgreSQL tanpa access key R2 atau dekripsi
+  manual. Kredensial koneksi database tujuan tetap diperlukan.
+- Konfigurasi/kunci backend dan prosedur darurat arsip `.dump.age` dipisahkan
+  dari panduan penggunaan SQL; bantuan alat recovery mengikuti pembedaan ini.
+- Enkripsi arsip R2, autentikasi unduhan, jadwal, dan retensi tidak berubah.
+
 ## [2.2.0] - 2026-09-04
 
 ### Added
