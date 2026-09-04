@@ -1,4 +1,5 @@
-// backup-decrypt produces an authenticated PostgreSQL archive, not a live restore.
+// backup-decrypt is for legacy/R2 encrypted archives, not current SQL downloads.
+// It produces an authenticated PostgreSQL archive, not a live restore.
 package main
 
 import (
@@ -51,8 +52,8 @@ func run(keyPath, inputPath, outputPath string) (err error) {
 	return nil
 }
 func main() {
-	key := flag.String("identity", "", "Path recovery.agekey offline")
-	input := flag.String("in", "", "File .dump.age dari dashboard")
+	key := flag.String("identity", "", "Path recovery.agekey untuk arsip terenkripsi; tidak diperlukan untuk impor .sql")
+	input := flag.String("in", "", "Arsip .dump.age lama atau dari R2; bukan file .sql unduhan dashboard saat ini")
 	output := flag.String("out", "", "File .dump baru, jangan di dalam repository")
 	flag.Parse()
 	if err := run(*key, *input, *output); err != nil {

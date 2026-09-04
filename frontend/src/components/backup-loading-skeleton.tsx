@@ -54,7 +54,7 @@ export function BackupContentSkeleton() {
 export function BackupPageSkeleton() {
   return (
     <div className="min-w-0 space-y-6">
-      <PageHeader title="Backup database" description="Cadangan terenkripsi untuk menjaga data PelajarNU Magetan ID tetap dapat dipulihkan."
+      <PageHeader title="Backup database" description="Backup manual dan otomatis dengan unduhan SQL yang siap diimpor ke PostgreSQL."
         action={<Button disabled tabIndex={-1} className="disabled:opacity-100"><Plus />Buat backup</Button>} />
       <BackupContentSkeleton />
     </div>

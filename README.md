@@ -58,7 +58,8 @@ flowchart LR
   Minggu pukul 02.00 WIB, dengan retensi 10 backup berhasil dan pemrosesan ulang
   jadwal yang terlewat setelah layanan kembali siap.
 - Arsip backup terenkripsi di Cloudflare R2 dan unduhan SQL PostgreSQL setelah
-  konfirmasi kata sandi, untuk pemulihan terencana oleh pengelola.
+  konfirmasi kata sandi akun SSO. File `.sql` siap diimpor ke PostgreSQL tanpa
+  access key R2 atau dekripsi manual, untuk pemulihan terencana oleh pengelola.
 
 ## Alur autentikasi
 
@@ -111,6 +112,7 @@ token yang masih berlaku.
 - Arsip backup dilindungi enkripsi age dan SSE-C R2. Akses backup dibatasi
   untuk super admin dengan pemeriksaan sesi, Origin, dan konfirmasi kata sandi.
   File SQL yang sudah diunduh tidak terenkripsi dan harus disimpan secara privat.
+  Kunci arsip tetap dikelola backend, bukan dimasukkan oleh pengguna saat impor SQL.
 - Credential production hanya disimpan pada environment server dan tidak menjadi
   bagian repository.
 

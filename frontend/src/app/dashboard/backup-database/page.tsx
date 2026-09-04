@@ -115,7 +115,7 @@ export default function BackupDatabasePage() {
         const link = document.createElement("a"); link.href = url;
         link.download = `backup-${action.backup.id}.sql`; link.click();
         window.setTimeout(() => URL.revokeObjectURL(url), 60000);
-        toast.success("File SQL siap disimpan. File ini tidak terenkripsi; simpan di tempat privat.");
+        toast.success("File .sql siap diimpor ke PostgreSQL tanpa dekripsi manual. Simpan file secara privat.");
       }
       if (!controller.signal.aborted) { setAction(null); void refresh(); }
     } catch (error) { if (!controller.signal.aborted) setActionError(getErrorMessage(error)); }
@@ -125,12 +125,12 @@ export default function BackupDatabasePage() {
   if (user?.role !== "super_admin") return <Alert variant="destructive"><ShieldAlert /><AlertTitle>Akses ditolak</AlertTitle><AlertDescription>Backup database hanya tersedia untuk super admin.</AlertDescription></Alert>;
 
   return <div className="min-w-0 space-y-6">
-    <PageHeader title="Backup database" description="Cadangan terenkripsi untuk menjaga data PelajarNU Magetan ID tetap dapat dipulihkan."
+    <PageHeader title="Backup database" description="Backup manual dan otomatis dengan unduhan SQL yang siap diimpor ke PostgreSQL."
       action={<Button onClick={() => openAction({ type: "create" })}><Plus />Buat backup</Button>} />
 
     {error && <Alert variant="destructive"><ShieldAlert /><AlertTitle>Status belum dapat diperbarui</AlertTitle><AlertDescription>{error}<Button className="mt-2 w-fit" size="sm" variant="outline" disabled={refreshing} onClick={() => void refresh()}>Coba lagi</Button></AlertDescription></Alert>}
     {status && !status.ready && <Alert><LockKeyhole /><AlertTitle>Konfigurasi backup belum siap</AlertTitle><AlertDescription>{status.issue || "Periksa konfigurasi backup pada backend."} Kunci dikelola pada konfigurasi backend privat, bukan di halaman ini.</AlertDescription></Alert>}
-    {status?.ready && !status.download_ready && <Alert><LockKeyhole /><AlertTitle>Unduhan SQL belum siap</AlertTitle><AlertDescription>{status.download_issue || "Siapkan kunci pemulihan dan pg_restore pada backend. Backup tetap dapat dibuat."}</AlertDescription></Alert>}
+    {status?.ready && !status.download_ready && <Alert><LockKeyhole /><AlertTitle>Unduhan SQL belum siap</AlertTitle><AlertDescription>{status.download_issue || "Pengelola server perlu melengkapi konfigurasi unduhan SQL di backend. Backup tetap dapat dibuat."} Konfigurasi ini dikelola di server, bukan dimasukkan saat impor file SQL.</AlertDescription></Alert>}
     {status?.maintenance_error && <Alert variant="destructive"><ShieldAlert /><AlertTitle>Retensi perlu diperiksa</AlertTitle><AlertDescription>{status.maintenance_error}</AlertDescription></Alert>}
 
     {!status && (!error || refreshing) ? <BackupContentSkeleton /> : status && <>
@@ -160,13 +160,13 @@ export default function BackupDatabasePage() {
           </Table>}
         </CardContent>
       </Card>
-      <div className="flex gap-2.5 text-sm leading-6 text-muted-foreground"><LockKeyhole className="mt-1 size-4 shrink-0" /><p>Arsip di R2 tetap terenkripsi. Unduhan berupa SQL PostgreSQL tanpa enkripsi, siap diimpor menggunakan psql atau fitur native restore PostgreSQL. Impor mengganti tabel dalam backup pada database tujuan; simpan file privat dan periksa tujuan impor. Jadwal yang terlewat dijalankan setelah layanan kembali siap, tanpa pemberitahuan email.</p></div>
+      <div className="flex gap-2.5 text-sm leading-6 text-muted-foreground"><LockKeyhole className="mt-1 size-4 shrink-0" /><p>Unduh file .sql dengan konfirmasi kata sandi akun SSO, lalu impor ke PostgreSQL menggunakan psql atau native restore yang mendukung SQL. Tidak perlu access key R2, recovery key, atau dekripsi manual saat impor. File SQL tidak terenkripsi; simpan privat dan pastikan database tujuan benar karena tabel dalam backup akan diganti. Arsip di R2 tetap terenkripsi; backend menyiapkan SQL secara otomatis.</p></div>
     </>}
 
     <Dialog open={action !== null} onOpenChange={(open) => { if (!open) openAction(null); }}>
       <DialogContent showCloseButton={!busy} onInteractOutside={(event) => { if (busy) event.preventDefault(); }} onEscapeKeyDown={(event) => { if (busy) event.preventDefault(); }}>
-        <DialogHeader><DialogTitle>{action?.type === "download" ? "Unduh SQL database" : "Buat backup database"}</DialogTitle><DialogDescription>{action?.type === "download" ? "Masukkan kata sandi untuk mengunduh file .sql yang siap diimpor. File berisi data sensitif tanpa enkripsi. Impor mengganti tabel dalam backup pada database tujuan; pastikan tujuannya benar." : "Masukkan kata sandi akun Anda. Backup berjalan di latar belakang tanpa menghentikan layanan."}</DialogDescription></DialogHeader>
-        <form onSubmit={confirm} className="space-y-4"><div className="space-y-2"><Label htmlFor="backup-password">Kata sandi akun</Label><PasswordInput id="backup-password" autoComplete="current-password" required disabled={busy} value={password} onChange={(event) => setPassword(event.target.value)} aria-invalid={!!actionError} aria-describedby={actionError ? "backup-action-error" : undefined} /></div>
+        <DialogHeader><DialogTitle>{action?.type === "download" ? "Unduh SQL database" : "Buat backup database"}</DialogTitle><DialogDescription>{action?.type === "download" ? "Konfirmasi kata sandi akun SSO untuk mengunduh file .sql. File langsung diimpor ke PostgreSQL tanpa recovery key atau dekripsi manual. SQL tidak terenkripsi; simpan privat dan periksa tujuan impor karena tabel dalam backup akan diganti." : "Masukkan kata sandi akun SSO Anda. Backup berjalan di latar belakang; setelah berhasil, file dapat diunduh sebagai SQL."}</DialogDescription></DialogHeader>
+        <form onSubmit={confirm} className="space-y-4"><div className="space-y-2"><Label htmlFor="backup-password">Kata sandi akun SSO</Label><PasswordInput id="backup-password" autoComplete="current-password" required disabled={busy} value={password} onChange={(event) => setPassword(event.target.value)} aria-invalid={!!actionError} aria-describedby={actionError ? "backup-action-error" : undefined} /></div>
           {action?.type === "create" && createIssue && <p role="status" className="text-sm text-muted-foreground">{createIssue}</p>}
           {actionError && <p id="backup-action-error" role="alert" className="text-sm text-destructive">{actionError}</p>}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" disabled={busy} onClick={() => openAction(null)}>Batal</Button><Button type="submit" disabled={busy || !password || (action?.type === "create" && !!createIssue)}>{busy && <LoaderCircle className="animate-spin motion-reduce:animate-none" />}{busy ? (action?.type === "download" ? "Menyiapkan SQL…" : "Memproses…") : action?.type === "download" ? "Unduh SQL" : "Mulai backup"}</Button></div>

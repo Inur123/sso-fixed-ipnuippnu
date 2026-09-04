@@ -1,4 +1,5 @@
-// backup-keygen runs on the operator's trusted machine, never on the SSO server.
+// backup-keygen prepares backend/archive recovery keys on an operator's trusted
+// machine. It is not a prerequisite for importing a dashboard SQL download.
 package main
 
 import (
@@ -30,8 +31,8 @@ func run(directory string) error {
 	}
 	files := map[string]string{
 		"recovery.agekey":    "# KUNCI PRIVAT: simpan salinan offline, jangan unggah ke Git/chat/frontend. Salinan operasional hanya pada path backend privat untuk unduhan SQL.\n" + identity.String() + "\n",
-		"backend-backup.env": "# Hanya file ini yang konfigurasinya dipasang pada backend.\nBACKUP_ENABLED=true\nBACKUP_AGE_RECIPIENT=" + identity.Recipient().String() + "\nBACKUP_R2_SSE_KEY=" + base64.StdEncoding.EncodeToString(key) + "\nBACKUP_PREFIX=backups/database\nBACKUP_MAX_SIZE_MB=512\nBACKUP_PG_DUMP_PATH=pg_dump\n",
-		"README.txt":         "Simpan recovery.agekey DAN backend-backup.env di penyimpanan offline terenkripsi. SSE-C key diperlukan jika mengambil arsip langsung dari R2. Unduhan dashboard berupa SQL tanpa enkripsi: backend membutuhkan BACKUP_IDENTITY_FILE pada path privat 0600/0400 untuk menyiapkannya. Jangan unggah identity ke Git/chat/frontend. Arsip R2 dan file .dump.age lama tetap membutuhkan identity untuk dekripsi offline. Jangan membuang kunci lama selama backup terkait masih disimpan. Baca backend/backup/README.md untuk pemulihan.\n",
+		"backend-backup.env": "# Kunci arsip untuk backend, bukan syarat impor SQL.\n# Atur BACKUP_IDENTITY_FILE terpisah ke recovery.agekey privat untuk unduhan SQL.\nBACKUP_ENABLED=true\nBACKUP_AGE_RECIPIENT=" + identity.Recipient().String() + "\nBACKUP_R2_SSE_KEY=" + base64.StdEncoding.EncodeToString(key) + "\nBACKUP_PREFIX=backups/database\nBACKUP_MAX_SIZE_MB=512\nBACKUP_PG_DUMP_PATH=pg_dump\n",
+		"README.txt":         "PENGGUNAAN BIASA: Unduh SQL di dashboard, konfirmasi kata sandi akun SSO, lalu impor file .sql ke PostgreSQL. Tidak perlu access key R2, recovery.agekey, atau backup-decrypt untuk mengimpor SQL. Koneksi/izin database tujuan tetap diperlukan. SQL tidak terenkripsi; simpan privat dan periksa tujuan impor karena tabel dalam backup diganti. Panduan: backend/backup/README.md.\n\nKHUSUS PENGELOLA SERVER: Folder ini melindungi arsip terenkripsi R2, bukan file SQL yang sudah diunduh. Backend memakai BACKUP_IDENTITY_FILE privat untuk menyiapkan SQL secara otomatis. Simpan recovery.agekey DAN backend-backup.env dalam salinan offline terenkripsi. Jangan unggah kunci ke Git/chat/frontend atau membuang kunci lama. Pemulihan darurat arsip .dump.age membutuhkan identity dan, untuk mengambil dari R2, SSE-C key. Setup dan prosedur darurat: backend/backup/OPERATIONS.md.\n",
 	}
 	for name, content := range files {
 		file, err := os.OpenFile(filepath.Join(directory, name), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
@@ -50,7 +51,7 @@ func run(directory string) error {
 	return nil
 }
 func main() {
-	directory := flag.String("out", "", "Direktori baru di luar repository untuk recovery kit")
+	directory := flag.String("out", "", "Direktori baru di luar repository untuk kunci backend/recovery; bukan untuk impor .sql")
 	flag.Parse()
 	if err := run(*directory); err != nil {
 		fmt.Fprintln(os.Stderr, "Pembuatan recovery kit gagal:", err)
