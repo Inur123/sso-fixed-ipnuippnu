@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { AppWindow, BadgeCheck, ChevronDown, KeyRound, LayoutDashboard, LogOut, ScrollText, Shield, UserRound, UsersRound } from "lucide-react";
+import { AppWindow, BadgeCheck, ChevronDown, DatabaseBackup, KeyRound, LayoutDashboard, LogOut, ScrollText, Shield, UserRound, UsersRound } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
@@ -25,6 +25,7 @@ const memberNavigation = [
 const adminNavigation = [
   { title: "Pengguna", href: "/dashboard/pengguna", icon: UsersRound },
   { title: "Audit log", href: "/dashboard/audit-log", icon: ScrollText },
+  { title: "Backup database", href: "/dashboard/backup-database", icon: DatabaseBackup },
 ];
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {

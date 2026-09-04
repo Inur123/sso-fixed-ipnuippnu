@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { BackupPageSkeleton } from "@/components/backup-loading-skeleton";
 
 function PageHeadingSkeleton({ action = false }: { action?: boolean }) {
   return (
@@ -223,6 +224,7 @@ function RouteSkeleton({ pathname }: { pathname: string }) {
   if (pathname.startsWith("/dashboard/aplikasi")) return <ApplicationsSkeleton />;
   if (pathname.startsWith("/dashboard/pengguna")) return <UsersSkeleton />;
   if (pathname.startsWith("/dashboard/audit-log")) return <AuditLogSkeleton />;
+  if (pathname.startsWith("/dashboard/backup-database")) return <BackupPageSkeleton />;
   return <ProfileSkeleton />;
 }
 

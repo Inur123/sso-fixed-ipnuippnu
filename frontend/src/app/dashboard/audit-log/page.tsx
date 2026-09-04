@@ -34,6 +34,11 @@ const PAGE_SIZE = 20;
 
 const ACTION_OPTIONS = [
   { value: "all", label: "Semua aktivitas" },
+  { value: "backup.requested", label: "Meminta backup database" },
+  { value: "backup.completed", label: "Backup database berhasil" },
+  { value: "backup.failed", label: "Backup database gagal" },
+  { value: "backup.downloaded", label: "Otorisasi unduhan backup" },
+  { value: "backup.pruned", label: "Retensi backup database" },
   { value: "user.register", label: "Registrasi pengguna" },
   { value: "email.verify", label: "Verifikasi email" },
   { value: "auth.login", label: "Login" },

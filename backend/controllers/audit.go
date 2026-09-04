@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"sso-backend/backup"
 	"sso-backend/database"
 	"sso-backend/models"
 )
@@ -45,6 +46,7 @@ const (
 )
 
 var knownAuditActions = map[string]struct{}{
+	backup.ActionRequested: {}, backup.ActionCompleted: {}, backup.ActionFailed: {}, backup.ActionDownloaded: {}, backup.ActionPruned: {},
 	AuditUserRegister: {}, AuditEmailVerify: {}, AuditAuthLogin: {}, AuditAuthLoginFailed: {}, AuditAuthLogout: {},
 	AuditUserStatusUpdate: {}, AuditUserRoleUpdate: {}, AuditUserDelete: {}, AuditUserProfileUpdate: {}, AuditUserPasswordUpdate: {}, AuditUserPasswordResetRequest: {}, AuditUserPasswordResetComplete: {},
 	AuditOAuthClientCreate: {}, AuditOAuthClientUpdate: {}, AuditOAuthClientDelete: {}, AuditOAuthClientAssignmentUpdate: {}, AuditOAuthClientAssignmentDelete: {}, AuditOAuthClientSecretView: {}, AuditOAuthClientSecretRegenerate: {}, AuditOAuthConsent: {}, AuditOAuthGrant: {},

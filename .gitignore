@@ -9,6 +9,13 @@ node_modules/
 .next/
 dist/
 bin/
+
+# Database backup artifacts and offline recovery credentials never belong in Git.
+*.dump
+*.dump.age
+backup-*.sql
+*.agekey
+backend-backup.env
 .env
 .env.*
 !.env.example
