@@ -67,6 +67,9 @@ func Connect() {
 
 	// AutoMigrate hanya untuk pengembangan awal. Produksi sebaiknya memakai migrasi terversi.
 	err = DB.AutoMigrate(&models.User{}, &models.EmailVerificationOTP{}, &models.VerificationEmailOutbox{}, &models.PasswordResetToken{}, &models.PasswordEmailOutbox{}, &models.Session{}, &models.OAuthClient{}, &models.OAuthClientAssignment{}, &models.OAuthConsent{}, &models.OAuthAuthCode{}, &models.OAuthToken{}, &models.AuditLog{}, &models.ProvisioningOutbox{})
+	if err == nil {
+		err = DB.AutoMigrate(&models.DatabaseBackup{}, &models.DatabaseBackupSchedule{})
+	}
 	if err != nil {
 		log.Fatal("Failed to migrate:", err)
 	}

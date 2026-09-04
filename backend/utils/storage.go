@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -53,6 +54,9 @@ func InitR2Client() {
 
 // UploadToR2 mengunggah data ke R2 dan mengembalikan URL publik.
 func UploadToR2(ctx context.Context, key, contentType string, body io.Reader) (string, error) {
+	if !validAvatarKey(key) {
+		return "", fmt.Errorf("invalid avatar object key")
+	}
 	_, err := s3Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:       aws.String(r2BucketName),
 		Key:          aws.String(key),
@@ -68,6 +72,9 @@ func UploadToR2(ctx context.Context, key, contentType string, body io.Reader) (s
 
 // DeleteFromR2 menghapus objek dari R2 berdasarkan key.
 func DeleteFromR2(ctx context.Context, key string) error {
+	if !validAvatarKey(key) {
+		return fmt.Errorf("invalid avatar object key")
+	}
 	_, err := s3Client.DeleteObject(ctx, &s3.DeleteObjectInput{
 		Bucket: aws.String(r2BucketName),
 		Key:    aws.String(key),
@@ -85,5 +92,14 @@ func R2KeyFromPublicURL(publicURL string) string {
 	if !strings.HasPrefix(publicURL, prefix) {
 		return ""
 	}
-	return strings.TrimPrefix(publicURL, prefix)
+	key := strings.TrimPrefix(publicURL, prefix)
+	if !validAvatarKey(key) {
+		return ""
+	}
+	return key
 }
+
+// Public asset operations must never reach the backup namespace in the shared bucket.
+var avatarKeyPattern = regexp.MustCompile(`^avatars/[a-fA-F0-9-]{36}/[0-9]+\.(?i:jpg|jpeg|png|webp)$`)
+
+func validAvatarKey(key string) bool { return avatarKeyPattern.MatchString(key) }

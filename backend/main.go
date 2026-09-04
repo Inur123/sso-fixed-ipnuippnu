@@ -14,6 +14,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"sso-backend/backup"
 	"sso-backend/controllers"
 	"sso-backend/database"
 	"sso-backend/internal/apptime"
@@ -144,6 +145,8 @@ func main() {
 	provisioning.Start(appCtx, database.DB)
 	mailqueue.Start(appCtx, database.DB)
 	passwordmailqueue.Start(appCtx, database.DB)
+	backupService := backup.FromEnvironment(database.DB)
+	backupDone := backupService.Run(appCtx)
 
 	r := gin.Default()
 	if err := r.SetTrustedProxies(trustedProxies); err != nil {
@@ -227,6 +230,11 @@ func main() {
 	r.DELETE("/api/clients/:id", controllers.RequireSession, controllers.DeleteClient)
 
 	// RBAC administration.
+	backupController := controllers.BackupController{Service: backupService}
+	backupRoutes := r.Group("/api/admin/backups", controllers.RequireSession, controllers.RequireRole("super_admin"))
+	backupRoutes.GET("", backupController.Status)
+	backupRoutes.POST("", controllers.RateLimit(5, 15*time.Minute), backupController.Request)
+	backupRoutes.POST("/:id/download", controllers.RateLimit(10, 15*time.Minute), backupController.Download)
 	r.GET("/api/admin/users", controllers.RequireSession, controllers.RequireRole("super_admin"), controllers.AdminGetUsers)
 	r.GET("/api/admin/audit-logs", controllers.RequireSession, controllers.RequireRole("super_admin"), controllers.AdminGetAuditLogs)
 	r.GET("/api/admin/provisioning", controllers.RequireSession, controllers.RequireRole("super_admin"), controllers.AdminProvisioningStatus)
@@ -260,5 +268,11 @@ func main() {
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			log.Printf("HTTP server forced shutdown: %v", err)
 		}
+	}
+	stop()
+	select {
+	case <-backupDone:
+	case <-time.After(20 * time.Second):
+		log.Print("Backup worker stopped; unfinished work will be retried at startup.")
 	}
 }
