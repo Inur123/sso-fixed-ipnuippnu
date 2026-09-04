@@ -6,6 +6,60 @@ mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-09-04
+
+### Added
+
+- Menu Backup database khusus super admin dengan pembuatan manual dan jadwal
+  otomatis setiap Minggu pukul 02.00 `Asia/Jakarta` (WIB), tanpa notifikasi email.
+- Antrean dan jadwal backup persisten, penguncian pekerjaan lintas instance,
+  retry kegagalan, serta pemrosesan jadwal terlewat setelah layanan kembali siap.
+- Arsip PostgreSQL terenkripsi age X25519 dan SSE-C pada bucket R2 yang sudah
+  digunakan, dengan namespace terpisah per environment dan identitas instance.
+- Retensi 10 backup berhasil, termasuk manual dan otomatis. Arsip baru dibaca
+  ulang dan diverifikasi ukuran serta SHA-256 sebelum backup terlama dihapus.
+- Unduhan SQL dari snapshot yang dipilih, termasuk arsip `.dump.age`, dengan
+  konfirmasi kata sandi, pemeriksaan sesi/role/Origin, rate limit, dan audit.
+- Alat pembuatan recovery kit, dekripsi offline, dan panduan operasional backup.
+- Audit permintaan, hasil, unduhan, serta penghapusan backup oleh retensi.
+
+### Changed
+
+- Dashboard menampilkan status konfigurasi, jadwal, riwayat, ukuran arsip R2,
+  checksum, serta kesiapan unduhan SQL secara terpisah.
+- Loading halaman backup menggunakan placeholder per bagian dan baris tabel.
+  Tombol Buat backup tetap terlihat dengan tampilan stabil selama refresh;
+  validasi kesiapan tetap dilakukan pada dialog dan backend.
+- File dump, SQL backup, serta kunci pemulihan ditambahkan ke aturan ignore Git.
+
+### Fixed
+
+- Operasi aset publik dibatasi pada path avatar agar tidak dapat menyentuh
+  namespace backup di bucket yang sama.
+- Unduhan SQL memverifikasi integritas dan autentikasi arsip sebelum mengirim
+  isi, membatasi ukuran/konkurensi, dan memeriksa ulang sesi setelah konversi.
+- Pemeriksaan ukuran unduhan frontend mendukung respons yang dikompresi proxy
+  serta menolak file kosong, terpotong, atau respons yang bukan SQL.
+
+### Catatan upgrade
+
+- Rilis minor ini menambahkan fitur backup; kontrak OAuth/OIDC tetap kompatibel.
+  Backend menambahkan tabel metadata dan jadwal backup melalui migrasi startup.
+- Backup nonaktif secara default. Aktivasi membutuhkan konfigurasi backend,
+  kunci age/SSE-C, akses R2 yang sesuai, serta `pg_dump` dengan major version
+  yang sama dengan server PostgreSQL. Tidak ada secret baru di frontend.
+- Unduhan SQL membutuhkan `pg_restore` dengan major yang sesuai dan
+  `BACKUP_IDENTITY_FILE` privat di luar repository. Backend dapat mendekripsi
+  arsip untuk fitur ini; tetap simpan salinan kunci pemulihan secara offline.
+- SQL hasil unduhan tidak terenkripsi. Impor mengganti objek/tabel yang tercakup
+  dalam backup pada database tujuan, bukan menggabungkan data. Uji pada database
+  terisolasi sebelum pemulihan terencana; dashboard tidak melakukan restore.
+- Backup mencakup satu database aplikasi, bukan file avatar, konfigurasi, atau
+  kunci aplikasi. Pertahankan konfigurasi dan kunci tersebut secara terpisah.
+- Lihat [panduan backup](backend/backup/README.md) untuk aktivasi dan pemulihan.
+  Build ulang frontend dan restart backend diperlukan saat deployment nanti;
+  penerbitan release GitHub tidak otomatis memperbarui server production.
+
 ## [2.1.0] - 2026-09-03
 
 ### Added
@@ -109,7 +163,8 @@ mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 - Provisioning pengguna berbasis transactional outbox.
 - Dokumentasi integrasi aplikasi terpisah berbasis Docusaurus.
 
-[Unreleased]: https://github.com/Inur123/sso-fixed-ipnuippnu/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/Inur123/sso-fixed-ipnuippnu/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/Inur123/sso-fixed-ipnuippnu/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/Inur123/sso-fixed-ipnuippnu/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Inur123/sso-fixed-ipnuippnu/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/Inur123/sso-fixed-ipnuippnu/releases/tag/v1.0.0

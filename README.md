@@ -54,6 +54,11 @@ flowchart LR
 - Antrean email OTP, reset kata sandi, dan notifikasi keamanan dengan payload
   sensitif terenkripsi, retry exponential, serta template berlogo SSO.
 - Tanggal dan jam aplikasi konsisten menggunakan `Asia/Jakarta` (WIB).
+- Backup database khusus super admin, secara manual maupun otomatis setiap
+  Minggu pukul 02.00 WIB, dengan retensi 10 backup berhasil dan pemrosesan ulang
+  jadwal yang terlewat setelah layanan kembali siap.
+- Arsip backup terenkripsi di Cloudflare R2 dan unduhan SQL PostgreSQL setelah
+  konfirmasi kata sandi, untuk pemulihan terencana oleh pengelola.
 
 ## Alur autentikasi
 
@@ -72,7 +77,7 @@ flowchart LR
 | Peran | Tanggung jawab |
 | --- | --- |
 | `anggota` | Mengelola profil, keamanan, sesi, consent, dan aplikasi miliknya. |
-| `super_admin` | Mengelola pengguna, status akun, role internal, serta audit aktivitas platform. |
+| `super_admin` | Mengelola pengguna, status akun, role internal, audit aktivitas, serta backup database. |
 
 Aplikasi dapat menggunakan policy `assigned_only` untuk membatasi akses kepada
 pengguna yang ditugaskan atau `all_active_users` untuk seluruh pengguna aktif.
@@ -86,6 +91,7 @@ token yang masih berlaku.
 | Portal | Next.js, React, TypeScript, Tailwind CSS | Antarmuka akun, consent, dan administrasi. |
 | Identity API | Go, Gin, GORM | Autentikasi, OAuth/OIDC, kebijakan akses, dan worker asinkron. |
 | Database | PostgreSQL | Identitas, client, grant, token, audit, dan transactional outbox. |
+| Penyimpanan objek | Cloudflare R2 | Aset aplikasi dan arsip backup terenkripsi pada namespace terpisah. |
 | Dokumentasi | Docusaurus | Referensi protokol dan panduan integrasi aplikasi. |
 | Operasional | Nginx dan systemd | Reverse proxy, TLS termination, serta pengelolaan service production. |
 
@@ -102,6 +108,9 @@ token yang masih berlaku.
   S256.
 - Turnstile diverifikasi oleh backend dengan pembatasan hostname dan action.
 - Audit log mencatat aktivitas autentikasi, administrasi, consent, dan grant.
+- Arsip backup dilindungi enkripsi age dan SSE-C R2. Akses backup dibatasi
+  untuk super admin dengan pemeriksaan sesi, Origin, dan konfirmasi kata sandi.
+  File SQL yang sudah diunduh tidak terenkripsi dan harus disimpan secara privat.
 - Credential production hanya disimpan pada environment server dan tidak menjadi
   bagian repository.
 
@@ -120,7 +129,7 @@ PelajarNU Magetan ID telah digunakan sebagai layanan production. Proyek mengikut
 [`CHANGELOG.md`](CHANGELOG.md) dan artefak versi pada halaman
 [GitHub Releases](https://github.com/Inur123/sso-fixed-ipnuippnu/releases).
 
-Versi terbaru: **v2.1.0**.
+Versi terbaru: **v2.2.0**.
 
 ## Organisasi
 
