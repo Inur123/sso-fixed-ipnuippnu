@@ -12,6 +12,14 @@ if [[ ! -f "${frontend_dir}/server.js" && ! -f "${frontend_dir}/.next/standalone
   echo "Artifact frontend tidak memiliki standalone server.js." >&2
   exit 1
 fi
+runtime_dir="${frontend_dir}"
+if [[ ! -f "${runtime_dir}/server.js" ]]; then
+  runtime_dir="${frontend_dir}/.next/standalone"
+fi
+if [[ -L "${runtime_dir}/node_modules" || ! -f "${runtime_dir}/node_modules/next/package.json" ]]; then
+  echo "Artifact frontend harus membawa dependensi Next.js, bukan symlink node_modules dari komputer build." >&2
+  exit 1
+fi
 if [[ ! -d "${static_dir}" ]]; then
   echo "Artifact frontend tidak memiliki .next/static." >&2
   exit 1

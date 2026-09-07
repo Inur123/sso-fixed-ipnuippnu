@@ -8,12 +8,21 @@ mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 
 ### Changed
 
+- Tampilan README diperbarui dengan identitas visual SSO, ringkasan layanan,
+  status production, serta versi teknologi yang digunakan.
 - Panduan backup dan teks dashboard diperjelas: unduh `.sql` setelah konfirmasi
   kata sandi akun SSO, lalu impor ke PostgreSQL tanpa access key R2 atau dekripsi
   manual. Kredensial koneksi database tujuan tetap diperlukan.
 - Konfigurasi/kunci backend dan prosedur darurat arsip `.dump.age` dipisahkan
   dari panduan penggunaan SQL; bantuan alat recovery mengikuti pembedaan ini.
 - Enkripsi arsip R2, autentikasi unduhan, jadwal, dan retensi tidak berubah.
+
+### Fixed
+
+- Artifact deployment dari macOS menyertakan native runtime image processing
+  Linux yang versinya dipatok dan diverifikasi terhadap checksum lockfile.
+- Aktivasi release memeriksa dependensi frontend pada server dan selalu
+  mengembalikan release sebelumnya ketika validasi atau health check gagal.
 
 ## [2.2.0] - 2026-09-04
 

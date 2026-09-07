@@ -1,15 +1,52 @@
-# PelajarNU Magetan ID
+<div align="center">
+  <a href="https://pelajarnumagetan.id">
+    <img src="frontend/public/images/logo-sso.png" width="132" alt="Logo PelajarNU Magetan ID">
+  </a>
 
-[![CI](https://github.com/Inur123/sso-fixed-ipnuippnu/actions/workflows/ci.yml/badge.svg)](https://github.com/Inur123/sso-fixed-ipnuippnu/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Inur123/sso-fixed-ipnuippnu?display_name=tag)](https://github.com/Inur123/sso-fixed-ipnuippnu/releases)
+  <h1>PelajarNU Magetan ID</h1>
 
-**PelajarNU Magetan ID** adalah pusat identitas dan Single Sign-On resmi PC IPNU
-IPPNU Kabupaten Magetan. Sistem ini menyediakan satu akun SSO untuk mengakses
-berbagai aplikasi yang terhubung dalam ekosistem PelajarNU Magetan.
+  <p>
+    Pusat identitas dan Single Sign-On resmi PC IPNU IPPNU Kabupaten Magetan.<br>
+    Satu akun untuk mengakses berbagai layanan digital yang terhubung.
+  </p>
 
-Portal utama tersedia di [pelajarnumagetan.id](https://pelajarnumagetan.id) dan
-dokumentasi integrasi tersedia di
-[doc.pelajarnumagetan.id](https://doc.pelajarnumagetan.id).
+  <p>
+    <a href="https://github.com/Inur123/sso-fixed-ipnuippnu/actions/workflows/ci.yml"><img src="https://github.com/Inur123/sso-fixed-ipnuippnu/actions/workflows/ci.yml/badge.svg" alt="Status CI"></a>
+    <a href="https://github.com/Inur123/sso-fixed-ipnuippnu/releases"><img src="https://img.shields.io/github/v/release/Inur123/sso-fixed-ipnuippnu?display_name=tag&amp;label=release" alt="Rilis terbaru"></a>
+    <a href="https://pelajarnumagetan.id"><img src="https://img.shields.io/badge/status-production-00843D" alt="Status production"></a>
+  </p>
+
+  <p>
+    <img src="https://img.shields.io/badge/Go-1.26.5-00ADD8?logo=go&amp;logoColor=white" alt="Go 1.26.5">
+    <img src="https://img.shields.io/badge/Next.js-16.3.0-000000?logo=nextdotjs&amp;logoColor=white" alt="Next.js 16.3.0">
+    <img src="https://img.shields.io/badge/React-19.2.8-20232A?logo=react&amp;logoColor=61DAFB" alt="React 19.2.8">
+    <img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&amp;logoColor=white" alt="TypeScript 5">
+    <img src="https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&amp;logoColor=white" alt="PostgreSQL 16">
+  </p>
+
+  <p>
+    <a href="https://pelajarnumagetan.id">Portal identitas</a>
+    ·
+    <a href="https://api.pelajarnumagetan.id/.well-known/openid-configuration">OpenID Connect</a>
+    ·
+    <a href="https://doc.pelajarnumagetan.id">Dokumentasi integrasi</a>
+  </p>
+</div>
+
+## Ringkasan layanan
+
+| Informasi | Nilai |
+| --- | --- |
+| Fungsi | Identity Provider dan Single Sign-On |
+| Protokol | OAuth 2.0 Authorization Code + PKCE S256 dan OpenID Connect |
+| Lingkungan | Production |
+| Zona waktu | `Asia/Jakarta` (WIB) |
+| Versi rilis | `v2.2.0` |
+| Portal | [pelajarnumagetan.id](https://pelajarnumagetan.id) |
+
+PelajarNU Magetan ID menyediakan satu akun SSO untuk mengakses berbagai aplikasi
+yang terhubung dalam ekosistem PelajarNU Magetan. Dokumentasi integrasi tersedia
+di [doc.pelajarnumagetan.id](https://doc.pelajarnumagetan.id).
 
 ## Tentang sistem
 

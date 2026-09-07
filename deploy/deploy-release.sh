@@ -62,6 +62,39 @@ cp \
   "${SCRIPT_DIR}/url-config.sh" \
   "${STAGING_DIR}/deploy/"
 
+# A macOS build traces macOS native modules. Bundle the Linux x64/glibc sharp
+# packages explicitly, pinned and integrity-checked against the project's lock.
+node --input-type=module - "${FRONTEND_DIR}" "${STAGING_DIR}" <<'NATIVE_RUNTIME'
+import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
+const [source, staging] = process.argv.slice(2);
+const lock = JSON.parse(readFileSync(join(source, 'package-lock.json'), 'utf8'));
+const sharp = JSON.parse(readFileSync(join(staging, 'frontend/node_modules/sharp/package.json'), 'utf8'));
+for (const name of ['sharp-linux-x64', 'sharp-libvips-linux-x64']) {
+  const pkg = `@img/${name}`;
+  const entry = lock.packages[`node_modules/${pkg}`];
+  if (!entry || entry.version !== sharp.optionalDependencies[pkg] ||
+      !entry.resolved.startsWith(`https://registry.npmjs.org/${pkg}/-/`) ||
+      !entry.integrity.startsWith('sha512-')) {
+    throw new Error(`Lockfile tidak cocok dengan native runtime ${pkg}`);
+  }
+  const response = await fetch(entry.resolved, { signal: AbortSignal.timeout(120000) });
+  if (!response.ok) throw new Error(`Download native runtime gagal: ${response.status}`);
+  const bytes = Buffer.from(await response.arrayBuffer());
+  const integrity = `sha512-${createHash('sha512').update(bytes).digest('base64')}`;
+  if (integrity !== entry.integrity) throw new Error(`Integritas ${pkg} tidak cocok`);
+  const archive = join(staging, `${name}.tgz`);
+  const destination = join(staging, 'frontend/node_modules/@img', name);
+  writeFileSync(archive, bytes, { flag: 'wx', mode: 0o600 });
+  mkdirSync(destination, { recursive: true });
+  const result = spawnSync('tar', ['-xzf', archive, '-C', destination, '--strip-components=1'], { stdio: 'inherit' });
+  if (result.status !== 0) throw new Error(`Ekstraksi ${pkg} gagal`);
+}
+console.log('Native runtime Linux x64 terpasang; versi dan SHA-512 sesuai lockfile.');
+NATIVE_RUNTIME
+
 bash "${SCRIPT_DIR}/verify-frontend-artifact.sh" \
   "${STAGING_DIR}/frontend" \
   "https://api.pelajarnumagetan.id" \
@@ -115,7 +148,10 @@ fi
 activated=0
 rollback() {
   exit_code=$?
-  trap - ERR
+  trap - EXIT
+  if [[ "${exit_code}" -eq 0 ]]; then
+    return
+  fi
   if [[ "${activated}" -eq 1 ]]; then
     echo "Deploy gagal; mengembalikan release ${current_release}." >&2
     ln -sfn "${current_release}" "${app_root}/current"
@@ -126,7 +162,8 @@ rollback() {
   rm -f -- "${remote_archive}"
   exit "${exit_code}"
 }
-trap rollback ERR
+# EXIT also catches explicit `exit 1` from validation/health checks. ERR does not.
+trap rollback EXIT
 
 install -d -m 0755 "${new_release}"
 cp -a "${current_release}/." "${new_release}/"
@@ -141,6 +178,16 @@ if [[ "${actual_build_id}" != "${expected_build_id}" ]]; then
   echo "BUILD_ID artifact tidak cocok." >&2
   exit 1
 fi
+
+# Check the uploaded runtime on Linux before changing the active symlink.
+bash "${new_release}/deploy/verify-frontend-artifact.sh" \
+  "${new_release}/frontend" \
+  "https://api.pelajarnumagetan.id" \
+  "https://doc.pelajarnumagetan.id"
+(
+  cd "${new_release}/frontend"
+  node -e 'require("next"); require("sharp")("public/images/logo-sso.png").metadata().then(() => console.log("Runtime frontend siap di server."), () => process.exit(1))'
+)
 
 source "${new_release}/deploy/url-config.sh"
 load_upstream_configuration "${config_root}/deploy.env"
@@ -197,7 +244,7 @@ systemctl is-active --quiet ipnu-sso-backend.service
 systemctl is-active --quiet ipnu-sso-frontend.service
 nginx -t
 
-trap - ERR
+trap - EXIT
 rm -f -- "${remote_archive}"
 echo "RELEASE_OK=${release_id}"
 REMOTE_SCRIPT
