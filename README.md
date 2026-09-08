@@ -41,7 +41,7 @@
 | Protokol | OAuth 2.0 Authorization Code + PKCE S256 dan OpenID Connect |
 | Lingkungan | Production |
 | Zona waktu | `Asia/Jakarta` (WIB) |
-| Versi rilis | `v2.2.0` |
+| Versi rilis | `v2.3.0` |
 | Portal | [pelajarnumagetan.id](https://pelajarnumagetan.id) |
 
 PelajarNU Magetan ID menyediakan satu akun SSO untuk mengakses berbagai aplikasi
@@ -71,7 +71,8 @@ flowchart LR
 
 ## Kemampuan utama
 
-- Registrasi akun SSO dengan verifikasi email menggunakan OTP enam digit.
+- Registrasi akun SSO dengan nama, email, nomor HP, jenis kelamin, dan
+  verifikasi email menggunakan OTP enam digit.
 - Perlindungan registrasi menggunakan Cloudflare Turnstile dan validasi
   server-side.
 - Login terpusat untuk seluruh aplikasi yang telah terdaftar.
@@ -168,7 +169,7 @@ PelajarNU Magetan ID telah digunakan sebagai layanan production. Proyek mengikut
 [`CHANGELOG.md`](CHANGELOG.md) dan artefak versi pada halaman
 [GitHub Releases](https://github.com/Inur123/sso-fixed-ipnuippnu/releases).
 
-Versi terbaru: **v2.2.0**.
+Versi terbaru: **v2.3.0**.
 
 ## Organisasi
 
