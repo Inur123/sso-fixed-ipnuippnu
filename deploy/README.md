@@ -1,22 +1,69 @@
-# Konfigurasi alamat service lokal
+# Deployment SSO
 
-Hanya URL localhost/loopback yang dipindahkan ke env. Domain publik dan layanan
-eksternal tetap seperti sebelumnya; konfigurasi Turnstile dan R2 tidak berubah.
+Deployment produksi menggunakan artifact release, bukan `git pull` di VPS.
+Backend, frontend, dan dokumentasi dibangun dari commit Git yang sama kemudian
+diaktifkan melalui symlink `/opt/ipnu-sso/current`.
 
-Salin `deploy/.env.example` ke `/etc/ipnu-sso/deploy.env` pada VPS sebelum
-menjalankan setup atau release. `DEPLOY_ENV_FILE` dapat digunakan saat setup
-jika lokasi file berbeda. Node.js 22+ diperlukan untuk membaca env tanpa
-mengeksekusi isinya sebagai shell.
+## Pembaruan satu perintah
 
-- `BACKEND_UPSTREAM_URL`: alamat lokal backend untuk Nginx dan health check.
-- `FRONTEND_UPSTREAM_URL`: alamat lokal frontend untuk Nginx dan health check.
+Pastikan perubahan sudah di-commit dan di-push ke upstream branch, lalu jalankan
+dari root repository pada komputer pengembang:
 
-Keduanya harus berupa origin loopback dengan port eksplisit. Port service
-diambil dari URL tersebut; `BACKEND_PORT` di backend.env yang sudah ada harus
-cocok. Tidak ada fallback URL lokal di skrip.
+```bash
+bash deploy/deploy-release.sh
+```
 
-Build frontend tetap memakai `frontend/.env.production`. Validator artifact
-menolak URL localhost pada semua port, bukan hanya port API/dokumentasi.
-Contoh URL lokal dalam dokumentasi bukan konfigurasi aplikasi.
+Target default adalah `ubuntu@43.157.224.6`. Target lain dapat diberikan sebagai
+argumen pertama:
 
-Perubahan konfigurasi ini tidak menjalankan deploy.
+```bash
+bash deploy/deploy-release.sh ubuntu@alamat-vps
+```
+
+Komputer pengembang harus memiliki Git, Go, Node.js/npm, SSH, SCP, dan tar. SSH
+key harus sudah dapat masuk tanpa prompt interaktif dan pengguna target harus
+memiliki akses `sudo -n` pada VPS.
+
+Skrip akan:
+
+1. menolak working tree kotor, detached HEAD, atau commit yang belum sama dengan
+   upstream Git;
+2. menjalankan `go test`, `go vet`, lint/build frontend, serta typecheck/build
+   dokumentasi;
+3. membuat artifact Linux berisi ketiga layanan dan metadata commit;
+4. memvalidasi runtime Next.js/Sharp sebelum aktivasi;
+5. membuat release bertimestamp di `/opt/ipnu-sso/releases`;
+6. mempertahankan ENV, sertifikat, systemd, dan Nginx produksi;
+7. melakukan health check lokal dan publik, serta rollback otomatis jika
+   aktivasi gagal; dan
+8. mempertahankan lima release terbaru.
+
+Output sukses berakhir dengan `DEPLOY_OK`. Release bertimestamp di VPS berbeda
+dari GitHub Release: perbaikan kecil cukup di-commit dan di-deploy, sedangkan tag
+atau GitHub Release hanya dibuat saat memang menerbitkan versi aplikasi baru.
+
+## Konfigurasi produksi
+
+Konfigurasi server tidak dibawa di dalam artifact dan tidak ditimpa saat update:
+
+- `/etc/ipnu-sso/backend.env`
+- `/etc/ipnu-sso/frontend.env`
+- `/etc/ipnu-sso/deploy.env`
+- `/etc/ipnu-sso/oidc-private.pem`
+- `/etc/ipnu-sso/backup/`
+- konfigurasi Nginx dan sertifikat Let's Encrypt
+
+`BACKEND_UPSTREAM_URL` dan `FRONTEND_UPSTREAM_URL` di `deploy.env` harus berupa
+origin loopback dengan port eksplisit. Build frontend memakai
+`frontend/.env.production`; variabel `NEXT_PUBLIC_*` tertanam saat build.
+
+`setup-vps.sh` hanya untuk persiapan server pertama kali. Jangan menjalankannya
+untuk pembaruan rutin karena setup dapat menulis ulang service, frontend env, dan
+virtual host Nginx.
+
+## Rollback manual
+
+Skrip melakukan rollback otomatis jika health check aktivasi gagal. Jika rollback
+manual diperlukan, pilih salah satu direktori timestamp valid yang masih tersedia
+di `/opt/ipnu-sso/releases`, arahkan kembali symlink `current`, lalu restart kedua
+service. Selalu periksa target dengan `readlink -f` sebelum dan sesudah perubahan.
