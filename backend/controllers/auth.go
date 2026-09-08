@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -30,17 +31,28 @@ const (
 
 var errEmailAlreadyExists = errors.New("email already exists")
 
+var registrationPhonePattern = regexp.MustCompile(`^\+?[0-9]{8,15}$`)
+
 type RegisterRequest struct {
 	Email          string `json:"email" binding:"required,email"`
 	Password       string `json:"password" binding:"required,min=8,max=72"`
 	Name           string `json:"name" binding:"required,min=2,max=120"`
+	Phone          string `json:"phone" binding:"required,max=30"`
+	Gender         string `json:"gender" binding:"required,oneof=male female other"`
 	TurnstileToken string `json:"turnstile_token" binding:"required,max=2048"`
 }
 
 func Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		respondError(c, http.StatusBadRequest, "invalid_request", "Nama, email, kata sandi minimal 8 karakter, dan verifikasi keamanan wajib diisi.")
+		respondError(c, http.StatusBadRequest, "invalid_request", "Isi nama, email, nomor HP, jenis kelamin yang valid, kata sandi minimal 8 karakter, dan verifikasi keamanan.")
+		return
+	}
+	// Terima format nomor yang umum ditempel pengguna, tetapi simpan tanpa
+	// pemisah. Validasi format tidak berarti kepemilikan nomor sudah diverifikasi.
+	req.Phone = strings.NewReplacer(" ", "", "-", "", "(", "", ")", "").Replace(strings.TrimSpace(req.Phone))
+	if !registrationPhonePattern.MatchString(req.Phone) {
+		respondError(c, http.StatusBadRequest, "invalid_phone", "Nomor HP harus berisi 8–15 digit, boleh diawali + untuk kode negara.")
 		return
 	}
 	turnstileValid, err := utils.VerifyTurnstile(
@@ -69,6 +81,8 @@ func Register(c *gin.Context) {
 		Email:    normalizeEmail(req.Email),
 		Password: string(hashedPassword),
 		Name:     strings.TrimSpace(req.Name),
+		Phone:    req.Phone,
+		Gender:   req.Gender,
 		Role:     models.RoleAnggota,
 		IsActive: true,
 	}

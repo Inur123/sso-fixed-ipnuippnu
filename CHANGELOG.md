@@ -6,8 +6,25 @@ mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-09-08
+
+### Added
+
+- Registrasi akun SSO sekarang meminta nomor HP dan jenis kelamin. Nomor HP
+  menerima format lokal atau internasional, dinormalisasi sebelum disimpan,
+  dan divalidasi ulang oleh backend.
+- Deployment release dapat dijalankan dengan satu perintah dari komputer
+  pengembang untuk membangun backend, frontend, dan dokumentasi dari commit
+  yang sama.
+
 ### Changed
 
+- Formulir registrasi menampilkan nomor HP dan jenis kelamin berdampingan pada
+  layar lebar serta bertumpuk pada perangkat seluler agar tetap ringkas dan
+  mudah digunakan.
+- Deployment memverifikasi working tree, upstream Git, prasyarat VPS, metadata
+  commit, runtime Next.js/Sharp, dan endpoint publik sebelum dinyatakan sukses.
+  Konfigurasi production tetap berada di luar artifact release.
 - Tampilan README diperbarui dengan identitas visual SSO, ringkasan layanan,
   status production, serta versi teknologi yang digunakan.
 - Panduan backup dan teks dashboard diperjelas: unduh `.sql` setelah konfirmasi
@@ -23,6 +40,17 @@ mengikuti [Semantic Versioning](https://semver.org/lang/id/).
   Linux yang versinya dipatok dan diverifikasi terhadap checksum lockfile.
 - Aktivasi release memeriksa dependensi frontend pada server dan selalu
   mengembalikan release sebelumnya ketika validasi atau health check gagal.
+
+### Catatan upgrade
+
+- Rilis minor ini menambahkan data profil pada alur registrasi; kontrak
+  OAuth/OIDC serta akun yang sudah ada tetap kompatibel.
+- Endpoint registrasi internal sekarang mewajibkan field `phone` dan `gender`.
+  Frontend dalam release ini sudah mengirim keduanya. Kolom database telah ada,
+  sehingga tidak diperlukan migrasi data khusus.
+- Deployment production dilakukan terpisah setelah release GitHub diterbitkan.
+  Jalankan `bash deploy/deploy-release.sh` dari repository yang bersih dan sudah
+  sama dengan upstream Git.
 
 ## [2.2.0] - 2026-09-04
 
@@ -181,7 +209,8 @@ mengikuti [Semantic Versioning](https://semver.org/lang/id/).
 - Provisioning pengguna berbasis transactional outbox.
 - Dokumentasi integrasi aplikasi terpisah berbasis Docusaurus.
 
-[Unreleased]: https://github.com/Inur123/sso-fixed-ipnuippnu/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/Inur123/sso-fixed-ipnuippnu/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/Inur123/sso-fixed-ipnuippnu/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/Inur123/sso-fixed-ipnuippnu/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/Inur123/sso-fixed-ipnuippnu/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/Inur123/sso-fixed-ipnuippnu/compare/v1.0.0...v2.0.0
